@@ -1,0 +1,157 @@
+"use client";
+
+import { useState } from "react";
+import dynamic from "next/dynamic";
+import exifr from "exifr";
+
+const AddLocationMap = dynamic(() => import("../../components/AddLocationMap"), {
+    ssr: false,
+});
+
+export default function AddLocationPage() {
+    const [photoName, setPhotoName] = useState("");
+    const [photoPreview, setPhotoPreview] = useState("");
+    const [observedDate, setObservedDate] = useState("");
+    const [latitude, setLatitude] = useState<number | null>(null);
+    const [longitude, setLongitude] = useState<number | null>(null);
+    const [message, setMessage] = useState("");
+
+    async function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setPhotoName(file.name);
+        setPhotoPreview(URL.createObjectURL(file));
+        setMessage("Reading photo location...");
+
+        const gps = await exifr.gps(file);
+        const exif = await exifr.parse(file);
+
+        if (gps?.latitude && gps?.longitude) {
+            setLatitude(gps.latitude);
+            setLongitude(gps.longitude);
+            setMessage("Location detected from photo. You can drag the marker to adjust it.");
+        } else {
+            setLatitude(null);
+            setLongitude(null);
+            setMessage("No GPS found. Click the map to add the location manually.");
+        }
+
+        if (exif?.DateTimeOriginal) {
+            const date = new Date(exif.DateTimeOriginal);
+            setObservedDate(date.toISOString().split("T")[0]);
+        } else {
+            setObservedDate(new Date().toISOString().split("T")[0]);
+        }
+    }
+
+    return (
+        <main className="p-4 max-w-xl mx-auto">
+            <h1 className="text-3xl font-bold mb-4">Add Harvest Location</h1>
+
+            <form className="space-y-4">
+                <div>
+                    <label className="block mb-2 font-semibold">Photo</label>
+                    <input type="file" accept="image/*" onChange={handlePhotoChange} />
+                </div>
+
+                {photoPreview && (
+                    <img
+                        src={photoPreview}
+                        alt={photoName}
+                        className="w-full rounded border object-cover"
+                    />
+                )}
+
+                {message && <p>{message}</p>}
+
+                <div>
+                    <label className="block mb-1 font-semibold">Location</label>
+                    <AddLocationMap
+                        latitude={latitude}
+                        longitude={longitude}
+                        setLatitude={setLatitude}
+                        setLongitude={setLongitude}
+                    />
+                    {latitude && longitude && (
+                        <p className="mt-2 text-sm text-gray-600">
+                            Location set. Drag the marker if needed.
+                        </p>
+                    )}
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Observed Date</label>
+                    <input
+                        type="date"
+                        value={observedDate}
+                        onChange={(e) => setObservedDate(e.target.value)}
+                        className="w-full rounded border p-2"
+                    />
+                    <p className="mt-1 text-sm text-gray-600">
+                        Auto-filled from photo where available.
+                    </p>
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Species</label>
+                    <select className="w-full rounded border p-2">
+                        <option>Elder</option>
+                        <option>Apple</option>
+                        <option>Pear</option>
+                        <option>Damson</option>
+                        <option>Sloe</option>
+                        <option>Wild Garlic</option>
+                        <option>Other</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Stage at Observation</label>
+                    <select className="w-full rounded border p-2">
+                        <option>Budding</option>
+                        <option>Peak flower</option>
+                        <option>Past flower</option>
+                        <option>Green berries / fruit</option>
+                        <option>Ripe berries / fruit</option>
+                        <option>Dormant / not in season</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Estimated yield</label>
+                    <select className="w-full rounded border p-2">
+                        <option>&lt;20 heads / very small</option>
+                        <option>20-50 heads / small</option>
+                        <option>50-100 heads / medium</option>
+                        <option>100+ heads / large</option>
+                        <option>Huge / exceptional</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Access</label>
+                    <select className="w-full rounded border p-2">
+                        <option>Public</option>
+                        <option>Public but awkward</option>
+                        <option>Visible but private</option>
+                        <option>Unknown</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Notes</label>
+                    <textarea
+                        className="w-full rounded border p-2"
+                        rows={4}
+                        placeholder="e.g. cemetery edge, easy reach, large mature tree"
+                    />
+                </div>
+
+                <button type="button" className="rounded bg-black px-4 py-2 text-white">
+                    Save location
+                </button>
+            </form>
+        </main>
+    );
+}
