@@ -38,9 +38,81 @@ type SavedLocation = {
     createdAt: string;
 };
 
+type Observation = {
+    source: "csv" | "user";
+    photoName: string;
+    observedDate: string;
+    species: string;
+    stage?: string;
+    estimatedYield?: string;
+    access?: string;
+    notes?: string;
+};
+
+type GroupedLocation = {
+    id: string;
+    latitude: number;
+    longitude: number;
+    species: string;
+    observations: Observation[];
+};
+
+function distanceInMetres(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+) {
+    const earthRadius = 6371000;
+    const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
+
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRadians(lat1)) *
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function addToGroups(
+    groups: GroupedLocation[],
+    latitude: number,
+    longitude: number,
+    species: string,
+    observation: Observation
+) {
+    const mergeDistanceMetres = 10;
+
+    const existingGroup = groups.find(
+        (group) =>
+            group.species === species &&
+            distanceInMetres(group.latitude, group.longitude, latitude, longitude) <=
+            mergeDistanceMetres
+    );
+
+    if (existingGroup) {
+        existingGroup.observations.push(observation);
+        return;
+    }
+
+    groups.push({
+        id: crypto.randomUUID(),
+        latitude,
+        longitude,
+        species,
+        observations: [observation],
+    });
+}
+
 export default function Map() {
-    const [csvLocations, setCsvLocations] = useState<CsvLocation[]>([]);
-    const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
+    const [groupedLocations, setGroupedLocations] = useState<GroupedLocation[]>(
+        []
+    );
 
     useEffect(() => {
         Papa.parse<CsvLocation>("/data/eldertrees.csv", {
@@ -48,14 +120,52 @@ export default function Map() {
             header: true,
             skipEmptyLines: true,
             complete: (results) => {
-                setCsvLocations(results.data);
+                const groups: GroupedLocation[] = [];
+
+                results.data.forEach((tree) => {
+                    const lat = Number(tree.GPSLatitude);
+                    const lng = Number(tree.GPSLongitude);
+
+                    if (!lat || !lng) return;
+
+                    addToGroups(groups, lat, lng, "Elder", {
+                        source: "csv",
+                        photoName: tree.FileName,
+                        observedDate: tree.DateTimeOriginal,
+                        species: "Elder",
+                    });
+                });
+
+                const stored = localStorage.getItem("foragerLocations");
+
+                if (stored) {
+                    const savedLocations: SavedLocation[] = JSON.parse(stored);
+
+                    savedLocations.forEach((location) => {
+                        if (!location.latitude || !location.longitude) return;
+
+                        addToGroups(
+                            groups,
+                            location.latitude,
+                            location.longitude,
+                            location.species,
+                            {
+                                source: "user",
+                                photoName: location.photoName,
+                                observedDate: location.observedDate,
+                                species: location.species,
+                                stage: location.stage,
+                                estimatedYield: location.estimatedYield,
+                                access: location.access,
+                                notes: location.notes,
+                            }
+                        );
+                    });
+                }
+
+                setGroupedLocations(groups);
             },
         });
-
-        const stored = localStorage.getItem("foragerLocations");
-        if (stored) {
-            setSavedLocations(JSON.parse(stored));
-        }
     }, []);
 
     return (
@@ -69,65 +179,96 @@ export default function Map() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            {csvLocations.map((tree) => {
-                const lat = Number(tree.GPSLatitude);
-                const lng = Number(tree.GPSLongitude);
+            {groupedLocations.map((location) => (
+                <Marker
+                    key={location.id}
+                    position={[location.latitude, location.longitude]}
+                    icon={markerIcon}
+                >
+                    <Popup maxWidth={320}>
+                        <div style={{ width: "280px", maxHeight: "420px", overflowY: "auto" }}>
+                            <strong>{location.species}</strong>
+                            <br />
+                            Observations: {location.observations.length}
 
-                if (!lat || !lng) return null;
+                            <br />
+                            <a
+                                href={`/add?lat=${location.latitude}&lng=${location.longitude}&species=${encodeURIComponent(
+                                    location.species
+                                )}`}
+                                style={{
+                                    display: "inline-block",
+                                    marginTop: "8px",
+                                    marginBottom: "8px",
+                                    textDecoration: "underline",
+                                }}
+                            >
+                                Add observation here
+                            </a>
 
-                return (
-                    <Marker key={tree.FileName} position={[lat, lng]} icon={markerIcon}>
-                        <Popup>
-                            <div style={{ width: "220px" }}>
-                                <img
-                                    src={`/photos/${tree.FileName}`}
-                                    alt={tree.FileName}
-                                    style={{
-                                        width: "100%",
-                                        borderRadius: "8px",
-                                        marginBottom: "8px",
-                                    }}
-                                />
-                                <strong>{tree.FileName}</strong>
-                                <br />
-                                Taken: {tree.DateTimeOriginal}
-                            </div>
-                        </Popup>
-                    </Marker>
-                );
-            })}
+                            <hr style={{ margin: "8px 0" }} />
 
-            {savedLocations.map((location) => {
-                if (!location.latitude || !location.longitude) return null;
+                            {location.observations.map((observation, index) => (
+                                <div key={`${observation.photoName}-${index}`}>
+                                    {observation.photoName && (
+                                        <img
+                                            src={`/photos/${observation.photoName}`}
+                                            alt={observation.photoName}
+                                            style={{
+                                                width: "100%",
+                                                maxHeight: "140px",
+                                                objectFit: "cover",
+                                                borderRadius: "8px",
+                                                marginBottom: "8px",
+                                            }}
+                                        />
+                                    )}
 
-                return (
-                    <Marker
-                        key={location.id}
-                        position={[location.latitude, location.longitude]}
-                        icon={markerIcon}
-                    >
-                        <Popup>
-                            <div style={{ width: "220px" }}>
-                                <strong>USER SAVED: {location.species}</strong>
-                                <br />
-                                Observed: {location.observedDate}
-                                <br />
-                                Stage: {location.stage}
-                                <br />
-                                Yield: {location.estimatedYield}
-                                <br />
-                                Access: {location.access}
-                                {location.notes && (
-                                    <>
-                                        <br />
-                                        Notes: {location.notes}
-                                    </>
-                                )}
-                            </div>
-                        </Popup>
-                    </Marker>
-                );
-            })}
+                                    <strong>
+                                        {observation.source === "user"
+                                            ? "User observation"
+                                            : "Imported photo"}
+                                    </strong>
+                                    <br />
+                                    Date: {observation.observedDate}
+
+                                    {observation.stage && (
+                                        <>
+                                            <br />
+                                            Stage: {observation.stage}
+                                        </>
+                                    )}
+
+                                    {observation.estimatedYield && (
+                                        <>
+                                            <br />
+                                            Yield: {observation.estimatedYield}
+                                        </>
+                                    )}
+
+                                    {observation.access && (
+                                        <>
+                                            <br />
+                                            Access: {observation.access}
+                                        </>
+                                    )}
+
+                                    {observation.notes && (
+                                        <>
+                                            <br />
+                                            Notes: {observation.notes}
+                                        </>
+                                    )}
+
+                                    {index < location.observations.length - 1 && (
+                                        <hr style={{ margin: "8px 0" }} />
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </Popup>
+                </Marker>
+            ))}
         </MapContainer>
     );
 }

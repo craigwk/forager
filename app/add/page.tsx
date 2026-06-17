@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import exifr from "exifr";
 
 const AddLocationMap = dynamic(() => import("../../components/AddLocationMap"), {
@@ -23,6 +24,8 @@ type SavedLocation = {
 };
 
 export default function AddLocationPage() {
+    const searchParams = useSearchParams();
+
     const [photoName, setPhotoName] = useState("");
     const [photoPreview, setPhotoPreview] = useState("");
     const [observedDate, setObservedDate] = useState("");
@@ -37,32 +40,52 @@ export default function AddLocationPage() {
     const [notes, setNotes] = useState("");
     const [savedLocation, setSavedLocation] = useState<SavedLocation | null>(null);
 
+    const isExistingLocation = Boolean(
+        searchParams.get("lat") && searchParams.get("lng")
+    );
+
+    useEffect(() => {
+        const lat = searchParams.get("lat");
+        const lng = searchParams.get("lng");
+        const speciesParam = searchParams.get("species");
+
+        if (lat && lng) {
+            setLatitude(Number(lat));
+            setLongitude(Number(lng));
+            setMessage("Adding observation to existing location.");
+        }
+
+        if (speciesParam) {
+            setSpecies(speciesParam);
+        }
+
+        setObservedDate(new Date().toISOString().split("T")[0]);
+    }, [searchParams]);
+
     async function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0];
         if (!file) return;
 
         setPhotoName(file.name);
         setPhotoPreview(URL.createObjectURL(file));
-        setMessage("Reading photo location...");
+        setMessage("Reading photo data...");
 
         const gps = await exifr.gps(file);
         const exif = await exifr.parse(file);
 
-        if (gps?.latitude && gps?.longitude) {
+        if (gps?.latitude && gps?.longitude && !isExistingLocation) {
             setLatitude(gps.latitude);
             setLongitude(gps.longitude);
             setMessage("Location detected from photo. You can drag the marker to adjust it.");
+        } else if (isExistingLocation) {
+            setMessage("Photo added. Using existing location.");
         } else {
-            setLatitude(null);
-            setLongitude(null);
             setMessage("No GPS found. Click the map to add the location manually.");
         }
 
         if (exif?.DateTimeOriginal) {
             const date = new Date(exif.DateTimeOriginal);
             setObservedDate(date.toISOString().split("T")[0]);
-        } else {
-            setObservedDate(new Date().toISOString().split("T")[0]);
         }
     }
 
@@ -88,18 +111,20 @@ export default function AddLocationPage() {
         const updatedLocations = [...existingLocations, locationRecord];
 
         localStorage.setItem("foragerLocations", JSON.stringify(updatedLocations));
-
         setSavedLocation(locationRecord);
-        console.log("Saved location:", locationRecord);
     }
 
     return (
         <main className="p-4 max-w-xl mx-auto">
-            <h1 className="text-3xl font-bold mb-4">Add Harvest Location</h1>
+            <h1 className="text-3xl font-bold mb-4">
+                {isExistingLocation ? "Add Observation" : "Add Harvest Location"}
+            </h1>
 
             <form className="space-y-4">
                 <div>
-                    <label className="block mb-2 font-semibold">Photo</label>
+                    <label className="block mb-2 font-semibold">
+                        Photo {isExistingLocation && <span className="font-normal">(optional)</span>}
+                    </label>
                     <input type="file" accept="image/*" onChange={handlePhotoChange} />
                 </div>
 
@@ -122,11 +147,6 @@ export default function AddLocationPage() {
                         setLatitude={setLatitude}
                         setLongitude={setLongitude}
                     />
-                    {latitude && longitude && (
-                        <p className="mt-2 text-sm text-gray-600">
-                            Location set. Drag the marker if needed.
-                        </p>
-                    )}
                 </div>
 
                 <div>
@@ -137,9 +157,6 @@ export default function AddLocationPage() {
                         onChange={(e) => setObservedDate(e.target.value)}
                         className="w-full rounded border p-2"
                     />
-                    <p className="mt-1 text-sm text-gray-600">
-                        Auto-filled from photo where available.
-                    </p>
                 </div>
 
                 <div>
@@ -211,7 +228,7 @@ export default function AddLocationPage() {
                         onChange={(e) => setNotes(e.target.value)}
                         className="w-full rounded border p-2"
                         rows={4}
-                        placeholder="e.g. cemetery edge, easy reach, large mature tree"
+                        placeholder="e.g. checked today, now past flower"
                     />
                 </div>
 
@@ -220,13 +237,13 @@ export default function AddLocationPage() {
                     onClick={handleSaveLocation}
                     className="rounded bg-black px-4 py-2 text-white"
                 >
-                    Save location
+                    Save observation
                 </button>
             </form>
 
             {savedLocation && (
                 <div className="mt-6 rounded border bg-gray-50 p-4">
-                    <h2 className="mb-2 text-xl font-bold">Saved location preview</h2>
+                    <h2 className="mb-2 text-xl font-bold">Saved preview</h2>
                     <pre className="overflow-auto text-sm">
                         {JSON.stringify(savedLocation, null, 2)}
                     </pre>
