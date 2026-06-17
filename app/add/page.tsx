@@ -8,6 +8,19 @@ const AddLocationMap = dynamic(() => import("../../components/AddLocationMap"), 
     ssr: false,
 });
 
+type SavedLocation = {
+    photoName: string;
+    observedDate: string;
+    latitude: number | null;
+    longitude: number | null;
+    species: string;
+    stage: string;
+    estimatedYield: string;
+    access: string;
+    notes: string;
+    createdAt: string;
+};
+
 export default function AddLocationPage() {
     const [photoName, setPhotoName] = useState("");
     const [photoPreview, setPhotoPreview] = useState("");
@@ -15,6 +28,13 @@ export default function AddLocationPage() {
     const [latitude, setLatitude] = useState<number | null>(null);
     const [longitude, setLongitude] = useState<number | null>(null);
     const [message, setMessage] = useState("");
+
+    const [species, setSpecies] = useState("Elder");
+    const [stage, setStage] = useState("Budding");
+    const [estimatedYield, setEstimatedYield] = useState("<20 heads / very small");
+    const [access, setAccess] = useState("Public");
+    const [notes, setNotes] = useState("");
+    const [savedLocation, setSavedLocation] = useState<SavedLocation | null>(null);
 
     async function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0];
@@ -43,6 +63,24 @@ export default function AddLocationPage() {
         } else {
             setObservedDate(new Date().toISOString().split("T")[0]);
         }
+    }
+
+    function handleSaveLocation() {
+        const locationRecord: SavedLocation = {
+            photoName,
+            observedDate,
+            latitude,
+            longitude,
+            species,
+            stage,
+            estimatedYield,
+            access,
+            notes,
+            createdAt: new Date().toISOString(),
+        };
+
+        setSavedLocation(locationRecord);
+        console.log("Saved location:", locationRecord);
     }
 
     return (
@@ -95,7 +133,11 @@ export default function AddLocationPage() {
 
                 <div>
                     <label className="block mb-1 font-semibold">Species</label>
-                    <select className="w-full rounded border p-2">
+                    <select
+                        value={species}
+                        onChange={(e) => setSpecies(e.target.value)}
+                        className="w-full rounded border p-2"
+                    >
                         <option>Elder</option>
                         <option>Apple</option>
                         <option>Pear</option>
@@ -108,7 +150,11 @@ export default function AddLocationPage() {
 
                 <div>
                     <label className="block mb-1 font-semibold">Stage at Observation</label>
-                    <select className="w-full rounded border p-2">
+                    <select
+                        value={stage}
+                        onChange={(e) => setStage(e.target.value)}
+                        className="w-full rounded border p-2"
+                    >
                         <option>Budding</option>
                         <option>Peak flower</option>
                         <option>Past flower</option>
@@ -120,7 +166,11 @@ export default function AddLocationPage() {
 
                 <div>
                     <label className="block mb-1 font-semibold">Estimated yield</label>
-                    <select className="w-full rounded border p-2">
+                    <select
+                        value={estimatedYield}
+                        onChange={(e) => setEstimatedYield(e.target.value)}
+                        className="w-full rounded border p-2"
+                    >
                         <option>&lt;20 heads / very small</option>
                         <option>20-50 heads / small</option>
                         <option>50-100 heads / medium</option>
@@ -131,7 +181,11 @@ export default function AddLocationPage() {
 
                 <div>
                     <label className="block mb-1 font-semibold">Access</label>
-                    <select className="w-full rounded border p-2">
+                    <select
+                        value={access}
+                        onChange={(e) => setAccess(e.target.value)}
+                        className="w-full rounded border p-2"
+                    >
                         <option>Public</option>
                         <option>Public but awkward</option>
                         <option>Visible but private</option>
@@ -142,16 +196,31 @@ export default function AddLocationPage() {
                 <div>
                     <label className="block mb-1 font-semibold">Notes</label>
                     <textarea
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
                         className="w-full rounded border p-2"
                         rows={4}
                         placeholder="e.g. cemetery edge, easy reach, large mature tree"
                     />
                 </div>
 
-                <button type="button" className="rounded bg-black px-4 py-2 text-white">
+                <button
+                    type="button"
+                    onClick={handleSaveLocation}
+                    className="rounded bg-black px-4 py-2 text-white"
+                >
                     Save location
                 </button>
             </form>
+
+            {savedLocation && (
+                <div className="mt-6 rounded border bg-gray-50 p-4">
+                    <h2 className="mb-2 text-xl font-bold">Saved location preview</h2>
+                    <pre className="overflow-auto text-sm">
+                        {JSON.stringify(savedLocation, null, 2)}
+                    </pre>
+                </div>
+            )}
         </main>
     );
 }
