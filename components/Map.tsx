@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import Papa from "papaparse";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import {
+    MapContainer,
+    TileLayer,
+    Marker,
+    Popup,
+    useMap,
+    useMapEvents,
+} from "react-leaflet";
 
 const markerIcon = new L.Icon({
     iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -57,12 +64,7 @@ type GroupedLocation = {
     observations: Observation[];
 };
 
-function distanceInMetres(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-) {
+function distanceInMetres(lat1: number, lon1: number, lat2: number, lon2: number) {
     const earthRadius = 6371000;
     const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
 
@@ -70,11 +72,10 @@ function distanceInMetres(
     const dLon = toRadians(lon2 - lon1);
 
     const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.sin(dLat / 2) ** 2 +
         Math.cos(toRadians(lat1)) *
         Math.cos(toRadians(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+        Math.sin(dLon / 2) ** 2;
 
     return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
@@ -86,13 +87,10 @@ function addToGroups(
     species: string,
     observation: Observation
 ) {
-    const mergeDistanceMetres = 10;
-
     const existingGroup = groups.find(
         (group) =>
             group.species === species &&
-            distanceInMetres(group.latitude, group.longitude, latitude, longitude) <=
-            mergeDistanceMetres
+            distanceInMetres(group.latitude, group.longitude, latitude, longitude) <= 10
     );
 
     if (existingGroup) {
@@ -109,10 +107,59 @@ function addToGroups(
     });
 }
 
-export default function Map() {
-    const [groupedLocations, setGroupedLocations] = useState<GroupedLocation[]>(
-        []
+function MapClickHandler({
+    setNewPin,
+}: {
+    setNewPin: (pin: { lat: number; lng: number }) => void;
+}) {
+    useMapEvents({
+        click(e) {
+            setNewPin({ lat: e.latlng.lat, lng: e.latlng.lng });
+        },
+    });
+
+    return null;
+}
+
+function CurrentLocationButton() {
+    const map = useMap();
+
+    function goToCurrentLocation() {
+        navigator.geolocation.getCurrentPosition((position) => {
+            map.flyTo(
+                [position.coords.latitude, position.coords.longitude],
+                17
+            );
+        });
+    }
+
+    return (
+        <button
+            type="button"
+            onClick={goToCurrentLocation}
+            style={{
+                position: "absolute",
+                right: "10px",
+                bottom: "20px",
+                zIndex: 1000,
+                background: "white",
+                border: "1px solid #ccc",
+                borderRadius: "999px",
+                padding: "10px 12px",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            }}
+        >
+            ◎
+        </button>
     );
+}
+
+export default function Map() {
+    const [newPin, setNewPin] = useState<{ lat: number; lng: number } | null>(null);
+    const [groupedLocations, setGroupedLocations] = useState<GroupedLocation[]>([]);
+    const [speciesFilter, setSpeciesFilter] = useState("All");
+    const [mapStyle, setMapStyle] = useState<"standard" | "satellite">("standard");
+    const [darkMode, setDarkMode] = useState(false);
 
     useEffect(() => {
         Papa.parse<CsvLocation>("/data/eldertrees.csv", {
@@ -125,7 +172,6 @@ export default function Map() {
                 results.data.forEach((tree) => {
                     const lat = Number(tree.GPSLatitude);
                     const lng = Number(tree.GPSLongitude);
-
                     if (!lat || !lng) return;
 
                     addToGroups(groups, lat, lng, "Elder", {
@@ -144,22 +190,16 @@ export default function Map() {
                     savedLocations.forEach((location) => {
                         if (!location.latitude || !location.longitude) return;
 
-                        addToGroups(
-                            groups,
-                            location.latitude,
-                            location.longitude,
-                            location.species,
-                            {
-                                source: "user",
-                                photoName: location.photoName,
-                                observedDate: location.observedDate,
-                                species: location.species,
-                                stage: location.stage,
-                                estimatedYield: location.estimatedYield,
-                                access: location.access,
-                                notes: location.notes,
-                            }
-                        );
+                        addToGroups(groups, location.latitude, location.longitude, location.species, {
+                            source: "user",
+                            photoName: location.photoName,
+                            observedDate: location.observedDate,
+                            species: location.species,
+                            stage: location.stage,
+                            estimatedYield: location.estimatedYield,
+                            access: location.access,
+                            notes: location.notes,
+                        });
                     });
                 }
 
@@ -168,107 +208,243 @@ export default function Map() {
         });
     }, []);
 
+    const availableSpecies = [
+        "All",
+        ...Array.from(new Set(groupedLocations.map((location) => location.species))),
+    ];
+
+    const filteredLocations = groupedLocations.filter(
+        (location) => speciesFilter === "All" || location.species === speciesFilter
+    );
+
+
+    let tileUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+    let attribution = "&copy; OpenStreetMap contributors";
+
+    if (mapStyle === "satellite") {
+        tileUrl =
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+        attribution = "Tiles &copy; Esri";
+    } else if (darkMode) {
+        tileUrl =
+            "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
+        attribution = "&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap contributors";
+    }
+
+
     return (
-        <MapContainer
-            center={[55.674, -4.067]}
-            zoom={14}
-            style={{ height: "600px", width: "100%" }}
+        <div
+            style={{
+                position: "relative",
+                height: "100%",
+                width: "100%",
+                background: darkMode ? "#111" : "white",
+            }}
         >
-            <TileLayer
-                attribution="&copy; OpenStreetMap contributors"
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-
-            {groupedLocations.map((location) => (
-                <Marker
-                    key={location.id}
-                    position={[location.latitude, location.longitude]}
-                    icon={markerIcon}
+            <div
+                style={{
+                    position: "absolute",
+                    top: "10px",
+                    right: "10px",
+                    zIndex: 1000,
+                    display: "flex",
+                    gap: "6px",
+                    background: darkMode ? "#111" : "white",
+                    color: darkMode ? "white" : "black",
+                    padding: "8px",
+                    borderRadius: "10px",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                }}
+            >
+                <select
+                    value={speciesFilter}
+                    onChange={(e) => setSpeciesFilter(e.target.value)}
                 >
-                    <Popup maxWidth={320}>
-                        <div style={{ width: "280px", maxHeight: "420px", overflowY: "auto" }}>
-                            <strong>{location.species}</strong>
-                            <br />
-                            Observations: {location.observations.length}
+                    {availableSpecies.map((species) => (
+                        <option key={species}>{species}</option>
+                    ))}
+                </select>
 
-                            <br />
-                            <a
-                                href={`/add?lat=${location.latitude}&lng=${location.longitude}&species=${encodeURIComponent(
-                                    location.species
-                                )}`}
-                                style={{
-                                    display: "inline-block",
-                                    marginTop: "8px",
-                                    marginBottom: "8px",
-                                    textDecoration: "underline",
-                                }}
-                            >
-                                Add observation here
-                            </a>
+                <button
+                    type="button"
+                    onClick={() =>
+                        setMapStyle(mapStyle === "standard" ? "satellite" : "standard")
+                    }
+                >
+                    {mapStyle === "standard" ? "Satellite" : "Map"}
+                </button>
 
-                            <hr style={{ margin: "8px 0" }} />
+                <button type="button" onClick={() => setDarkMode(!darkMode)}>
+                    {darkMode ? "Light" : "Dark"}
+                </button>
+            </div>
 
-                            {location.observations.map((observation, index) => (
-                                <div key={`${observation.photoName}-${index}`}>
-                                    {observation.photoName && (
-                                        <img
-                                            src={`/photos/${observation.photoName}`}
-                                            alt={observation.photoName}
-                                            style={{
-                                                width: "100%",
-                                                maxHeight: "140px",
-                                                objectFit: "cover",
-                                                borderRadius: "8px",
-                                                marginBottom: "8px",
-                                            }}
-                                        />
-                                    )}
+            <MapContainer
+                center={[55.674, -4.067]}
+                zoom={14}
+                style={{ height: "100%", width: "100%" }}
+            >
+                <TileLayer attribution={attribution} url={tileUrl} />
 
-                                    <strong>
-                                        {observation.source === "user"
-                                            ? "User observation"
-                                            : "Imported photo"}
-                                    </strong>
+                <MapClickHandler setNewPin={setNewPin} />
+                <CurrentLocationButton />
+
+                {newPin && (
+                    <Marker position={[newPin.lat, newPin.lng]} icon={markerIcon}>
+                        <Popup>
+                            <div style={{ width: "220px" }}>
+                                <strong>New harvest location</strong>
+                                <br />
+                                <a
+                                    href={`/add?lat=${newPin.lat}&lng=${newPin.lng}`}
+                                    style={{
+                                        display: "inline-block",
+                                        marginTop: "8px",
+                                        textDecoration: "underline",
+                                    }}
+                                >
+                                    Add location here
+                                </a>
+                            </div>
+                        </Popup>
+                    </Marker>
+                )}
+
+                {filteredLocations.map((location) => {
+                    const latestObservation = [...location.observations].reverse()[0];
+
+                    return (
+                        <Marker
+                            key={location.id}
+                            position={[location.latitude, location.longitude]}
+                            icon={markerIcon}
+                            eventHandlers={{
+                                click: (e) => {
+                                    e.target._map.setView(
+                                        [location.latitude, location.longitude],
+                                        e.target._map.getZoom(),
+                                        { animate: true }
+                                    );
+                                },
+                            }}
+                        >
+                            <Popup maxWidth={320}>
+                                <div
+                                    style={{
+                                        width: "280px",
+                                        maxHeight: "420px",
+                                        overflowY: "auto",
+                                    }}
+                                >
+                                    <strong>{location.species}</strong>
                                     <br />
-                                    Date: {observation.observedDate}
+                                    Observations: {location.observations.length}
 
-                                    {observation.stage && (
+                                    {latestObservation && (
                                         <>
+                                            <hr style={{ margin: "8px 0" }} />
+                                            <strong>Latest</strong>
                                             <br />
-                                            Stage: {observation.stage}
+                                            Date: {latestObservation.observedDate}
+                                            {latestObservation.stage && (
+                                                <>
+                                                    <br />
+                                                    Stage: {latestObservation.stage}
+                                                </>
+                                            )}
+                                            {latestObservation.estimatedYield && (
+                                                <>
+                                                    <br />
+                                                    Yield: {latestObservation.estimatedYield}
+                                                </>
+                                            )}
+                                            {latestObservation.access && (
+                                                <>
+                                                    <br />
+                                                    Access: {latestObservation.access}
+                                                </>
+                                            )}
                                         </>
                                     )}
 
-                                    {observation.estimatedYield && (
-                                        <>
-                                            <br />
-                                            Yield: {observation.estimatedYield}
-                                        </>
-                                    )}
+                                    <br />
+                                    <a
+                                        href={`/add?lat=${location.latitude}&lng=${location.longitude
+                                            }&species=${encodeURIComponent(location.species)}`}
+                                        style={{
+                                            display: "inline-block",
+                                            marginTop: "8px",
+                                            marginBottom: "8px",
+                                            textDecoration: "underline",
+                                        }}
+                                    >
+                                        Add observation here
+                                    </a>
 
-                                    {observation.access && (
-                                        <>
-                                            <br />
-                                            Access: {observation.access}
-                                        </>
-                                    )}
+                                    <hr style={{ margin: "8px 0" }} />
+                                    <strong>History</strong>
 
-                                    {observation.notes && (
-                                        <>
-                                            <br />
-                                            Notes: {observation.notes}
-                                        </>
-                                    )}
+                                    {location.observations.map((observation, index) => (
+                                        <div key={`${observation.photoName}-${index}`}>
+                                            <hr style={{ margin: "8px 0" }} />
 
-                                    {index < location.observations.length - 1 && (
-                                        <hr style={{ margin: "8px 0" }} />
-                                    )}
+                                            {observation.photoName && (
+                                                <img
+                                                    src={`/photos/${observation.photoName}`}
+                                                    alt={observation.photoName}
+                                                    style={{
+                                                        width: "100%",
+                                                        maxHeight: "140px",
+                                                        objectFit: "cover",
+                                                        borderRadius: "8px",
+                                                        marginBottom: "8px",
+                                                    }}
+                                                />
+                                            )}
+
+                                            <strong>
+                                                {observation.source === "user"
+                                                    ? "User observation"
+                                                    : "Imported photo"}
+                                            </strong>
+                                            <br />
+                                            Date: {observation.observedDate}
+
+                                            {observation.stage && (
+                                                <>
+                                                    <br />
+                                                    Stage: {observation.stage}
+                                                </>
+                                            )}
+
+                                            {observation.estimatedYield && (
+                                                <>
+                                                    <br />
+                                                    Yield: {observation.estimatedYield}
+                                                </>
+                                            )}
+
+                                            {observation.access && (
+                                                <>
+                                                    <br />
+                                                    Access: {observation.access}
+                                                </>
+                                            )}
+
+                                            {observation.notes && (
+                                                <>
+                                                    <br />
+                                                    Notes: {observation.notes}
+                                                </>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    </Popup>
-                </Marker>
-            ))}
-        </MapContainer>
+                            </Popup>
+                        </Marker>
+                    );
+                })}
+            </MapContainer>
+        </div>
     );
 }

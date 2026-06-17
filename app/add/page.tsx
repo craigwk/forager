@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import exifr from "exifr";
+import Link from "next/link";
 
 const AddLocationMap = dynamic(() => import("../../components/AddLocationMap"), {
     ssr: false,
@@ -119,6 +120,10 @@ export default function AddLocationPage() {
             <h1 className="text-3xl font-bold mb-4">
                 {isExistingLocation ? "Add Observation" : "Add Harvest Location"}
             </h1>
+
+            <Link href="/" className="mb-4 inline-block underline">
+                ← Back to map
+            </Link>
 
             <form className="space-y-4">
                 <div>
