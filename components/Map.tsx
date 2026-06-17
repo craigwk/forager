@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Papa from "papaparse";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { supabase } from "../lib/supabase";
 import {
     MapContainer,
     TileLayer,
@@ -47,6 +48,7 @@ type SavedLocation = {
 
 type Observation = {
     source: "csv" | "user";
+    savedLocationId?: string;
     photoName: string;
     observedDate: string;
     species: string;
@@ -174,50 +176,67 @@ export default function Map() {
 
 
     useEffect(() => {
-        Papa.parse<CsvLocation>("/data/eldertrees.csv", {
-            download: true,
-            header: true,
-            skipEmptyLines: true,
-            complete: (results) => {
-                const groups: GroupedLocation[] = [];
+        async function loadData() {
+            const response = await fetch("/data/eldertrees.csv");
+            const csvText = await response.text();
 
-                results.data.forEach((tree) => {
-                    const lat = Number(tree.GPSLatitude);
-                    const lng = Number(tree.GPSLongitude);
-                    if (!lat || !lng) return;
+            Papa.parse<CsvLocation>(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: async (results) => {
+                    const groups: GroupedLocation[] = [];
 
-                    addToGroups(groups, lat, lng, "Elder", {
-                        source: "csv",
-                        photoName: tree.FileName,
-                        observedDate: tree.DateTimeOriginal,
-                        species: "Elder",
-                    });
-                });
+                    results.data.forEach((tree) => {
+                        const lat = Number(tree.GPSLatitude);
+                        const lng = Number(tree.GPSLongitude);
+                        if (!lat || !lng) return;
 
-                const stored = localStorage.getItem("foragerLocations");
-
-                if (stored) {
-                    const savedLocations: SavedLocation[] = JSON.parse(stored);
-
-                    savedLocations.forEach((location) => {
-                        if (!location.latitude || !location.longitude) return;
-
-                        addToGroups(groups, location.latitude, location.longitude, location.species, {
-                            source: "user",
-                            photoName: location.photoName,
-                            observedDate: location.observedDate,
-                            species: location.species,
-                            stage: location.stage,
-                            estimatedYield: location.estimatedYield,
-                            access: location.access,
-                            notes: location.notes,
+                        addToGroups(groups, lat, lng, "Elder", {
+                            source: "csv",
+                            photoName: tree.FileName,
+                            observedDate: tree.DateTimeOriginal,
+                            species: "Elder",
                         });
                     });
-                }
 
-                setGroupedLocations(groups);
-            },
-        });
+                    const { data: savedLocations, error } = await supabase
+                        .from("observations")
+                        .select("*");
+
+                    console.log("Loaded observations:", savedLocations);
+
+                    if (error) {
+                        console.error("Error loading observations:", error);
+                    } else if (savedLocations) {
+                        savedLocations.forEach((location) => {
+                            if (!location.latitude || !location.longitude) return;
+
+                            addToGroups(
+                                groups,
+                                location.latitude,
+                                location.longitude,
+                                location.species,
+                                {
+                                    source: "user",
+                                    savedLocationId: location.id,
+                                    photoName: location.photo_name ?? "",
+                                    observedDate: location.observed_date ?? "",
+                                    species: location.species,
+                                    stage: location.stage,
+                                    estimatedYield: location.estimated_yield,
+                                    access: location.access,
+                                    notes: location.notes,
+                                }
+                            );
+                        });
+                    }
+
+                    setGroupedLocations(groups);
+                },
+            });
+        }
+
+        loadData();
     }, []);
 
     const availableSpecies = [
@@ -239,6 +258,20 @@ export default function Map() {
         attribution = "Tiles &copy; Esri";
     }
 
+    function handleDeleteObservation(id: string) {
+        const stored = localStorage.getItem("foragerLocations");
+        if (!stored) return;
+
+        const savedLocations: SavedLocation[] = JSON.parse(stored);
+
+        const updatedLocations = savedLocations.filter(
+            (location) => location.id !== id
+        );
+
+        localStorage.setItem("foragerLocations", JSON.stringify(updatedLocations));
+
+        window.location.reload();
+    }
 
     return (
         <div
@@ -440,6 +473,23 @@ export default function Map() {
                                                 <>
                                                     <br />
                                                     Notes: {observation.notes}
+                                                </>
+                                            )}
+
+                                            {observation.source === "user" && observation.savedLocationId && (
+                                                <>
+                                                    <br />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteObservation(observation.savedLocationId!)}
+                                                        style={{
+                                                            marginTop: "8px",
+                                                            color: "red",
+                                                            textDecoration: "underline",
+                                                        }}
+                                                    >
+                                                        Delete observation
+                                                    </button>
                                                 </>
                                             )}
                                         </div>

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import exifr from "exifr";
 import Link from "next/link";
+import { supabase } from "../../lib/supabase";
 
 const AddLocationMap = dynamic(() => import("../../components/AddLocationMap"), {
     ssr: false,
@@ -90,7 +91,7 @@ export default function AddLocationPage() {
         }
     }
 
-    function handleSaveLocation() {
+    async function handleSaveLocation() {
         const locationRecord: SavedLocation = {
             id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             photoName,
@@ -105,14 +106,43 @@ export default function AddLocationPage() {
             createdAt: new Date().toISOString(),
         };
 
-        const existingLocations = JSON.parse(
-            localStorage.getItem("foragerLocations") || "[]"
-        );
+        console.log("Saving to Supabase:", {
+            species,
+            observedDate,
+            latitude,
+            longitude,
+            stage,
+            estimatedYield,
+            access,
+            notes,
+            photoName,
+        });
 
-        const updatedLocations = [...existingLocations, locationRecord];
+        const { data, error } = await supabase
+            .from("observations")
+            .insert({
+                species,
+                observed_date: observedDate || null,
+                latitude,
+                longitude,
+                stage,
+                estimated_yield: estimatedYield,
+                access,
+                notes,
+                photo_name: photoName,
+            })
+            .select();
 
-        localStorage.setItem("foragerLocations", JSON.stringify(updatedLocations));
+        console.log("Supabase response:", { data, error });
+
+        if (error) {
+            console.error("Supabase save error:", error);
+            alert("Could not save observation.");
+            return;
+        }
+
         setSavedLocation(locationRecord);
+        alert("Observation saved.");
     }
 
     return (
