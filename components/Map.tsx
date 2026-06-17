@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "../lib/supabase";
+import ObservationModal from "./ObservationModal";
 import {
     MapContainer,
     TileLayer,
@@ -32,20 +33,6 @@ type CsvLocation = {
     GPSLongitude: string;
 };
 
-type SavedLocation = {
-    id: string;
-    photoName: string;
-    observedDate: string;
-    latitude: number | null;
-    longitude: number | null;
-    species: string;
-    stage: string;
-    estimatedYield: string;
-    access: string;
-    notes: string;
-    createdAt: string;
-};
-
 type Observation = {
     source: "csv" | "user";
     savedLocationId?: string;
@@ -64,6 +51,19 @@ type GroupedLocation = {
     longitude: number;
     species: string;
     observations: Observation[];
+};
+
+type SupabaseObservation = {
+    id: string;
+    species: string;
+    observed_date: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    stage: string | null;
+    estimated_yield: string | null;
+    access: string | null;
+    notes: string | null;
+    photo_name: string | null;
 };
 
 function distanceInMetres(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -128,10 +128,7 @@ function CurrentLocationButton() {
 
     function goToCurrentLocation() {
         navigator.geolocation.getCurrentPosition((position) => {
-            map.flyTo(
-                [position.coords.latitude, position.coords.longitude],
-                17
-            );
+            map.flyTo([position.coords.latitude, position.coords.longitude], 17);
         });
     }
 
@@ -173,71 +170,72 @@ export default function Map() {
     const [groupedLocations, setGroupedLocations] = useState<GroupedLocation[]>([]);
     const [speciesFilter, setSpeciesFilter] = useState("All");
     const [mapStyle, setMapStyle] = useState<"standard" | "satellite">("standard");
+    const [observationTarget, setObservationTarget] = useState<{
+        latitude: number;
+        longitude: number;
+        species: string;
+    } | null>(null);
 
+    async function loadMapData() {
+        const response = await fetch("/data/eldertrees.csv");
+        const csvText = await response.text();
 
-    useEffect(() => {
-        async function loadData() {
-            const response = await fetch("/data/eldertrees.csv");
-            const csvText = await response.text();
+        Papa.parse<CsvLocation>(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            complete: async (results) => {
+                const groups: GroupedLocation[] = [];
 
-            Papa.parse<CsvLocation>(csvText, {
-                header: true,
-                skipEmptyLines: true,
-                complete: async (results) => {
-                    const groups: GroupedLocation[] = [];
+                results.data.forEach((tree) => {
+                    const lat = Number(tree.GPSLatitude);
+                    const lng = Number(tree.GPSLongitude);
+                    if (!lat || !lng) return;
 
-                    results.data.forEach((tree) => {
-                        const lat = Number(tree.GPSLatitude);
-                        const lng = Number(tree.GPSLongitude);
-                        if (!lat || !lng) return;
+                    addToGroups(groups, lat, lng, "Elder", {
+                        source: "csv",
+                        photoName: tree.FileName,
+                        observedDate: tree.DateTimeOriginal,
+                        species: "Elder",
+                    });
+                });
 
-                        addToGroups(groups, lat, lng, "Elder", {
-                            source: "csv",
-                            photoName: tree.FileName,
-                            observedDate: tree.DateTimeOriginal,
-                            species: "Elder",
+                const { data: savedLocations, error } = await supabase
+                    .from("observations")
+                    .select("*");
+
+                if (error) {
+                    console.error("Error loading observations:", error);
+                } else if (savedLocations) {
+                    (savedLocations as SupabaseObservation[]).forEach((location) => {
+                        if (!location.latitude || !location.longitude) return;
+
+                        addToGroups(groups, location.latitude, location.longitude, location.species, {
+                            source: "user",
+                            savedLocationId: location.id,
+                            photoName: location.photo_name ?? "",
+                            observedDate: location.observed_date ?? "",
+                            species: location.species,
+                            stage: location.stage ?? undefined,
+                            estimatedYield: location.estimated_yield ?? undefined,
+                            access: location.access ?? undefined,
+                            notes: location.notes ?? undefined,
                         });
                     });
+                }
 
-                    const { data: savedLocations, error } = await supabase
-                        .from("observations")
-                        .select("*");
+                setGroupedLocations(groups);
+            },
+        });
+    }
 
-                    console.log("Loaded observations:", savedLocations);
-
-                    if (error) {
-                        console.error("Error loading observations:", error);
-                    } else if (savedLocations) {
-                        savedLocations.forEach((location) => {
-                            if (!location.latitude || !location.longitude) return;
-
-                            addToGroups(
-                                groups,
-                                location.latitude,
-                                location.longitude,
-                                location.species,
-                                {
-                                    source: "user",
-                                    savedLocationId: location.id,
-                                    photoName: location.photo_name ?? "",
-                                    observedDate: location.observed_date ?? "",
-                                    species: location.species,
-                                    stage: location.stage,
-                                    estimatedYield: location.estimated_yield,
-                                    access: location.access,
-                                    notes: location.notes,
-                                }
-                            );
-                        });
-                    }
-
-                    setGroupedLocations(groups);
-                },
-            });
-        }
-
-        loadData();
+    useEffect(() => {
+        loadMapData();
     }, []);
+
+    function handleDeleteObservation(id: string) {
+        console.log("Delete later:", id);
+        alert("Delete from Supabase still needs wiring back in.");
+    }
 
     const availableSpecies = [
         "All",
@@ -248,7 +246,6 @@ export default function Map() {
         (location) => speciesFilter === "All" || location.species === speciesFilter
     );
 
-
     let tileUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
     let attribution = "&copy; OpenStreetMap contributors";
 
@@ -258,29 +255,8 @@ export default function Map() {
         attribution = "Tiles &copy; Esri";
     }
 
-    function handleDeleteObservation(id: string) {
-        const stored = localStorage.getItem("foragerLocations");
-        if (!stored) return;
-
-        const savedLocations: SavedLocation[] = JSON.parse(stored);
-
-        const updatedLocations = savedLocations.filter(
-            (location) => location.id !== id
-        );
-
-        localStorage.setItem("foragerLocations", JSON.stringify(updatedLocations));
-
-        window.location.reload();
-    }
-
     return (
-        <div
-            style={{
-                position: "relative",
-                height: "100%",
-                width: "100%",
-            }}
-        >
+        <div style={{ position: "relative", height: "100%", width: "100%" }}>
             <div
                 style={{
                     position: "absolute",
@@ -313,7 +289,6 @@ export default function Map() {
                 >
                     {mapStyle === "standard" ? "Satellite" : "Map"}
                 </button>
-
             </div>
 
             <MapContainer
@@ -332,17 +307,25 @@ export default function Map() {
                         <Popup>
                             <div style={{ width: "220px" }}>
                                 <strong>New harvest location</strong>
+
                                 <br />
-                                <a
-                                    href={`/add?lat=${newPin.lat}&lng=${newPin.lng}`}
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setObservationTarget({
+                                            latitude: newPin.lat,
+                                            longitude: newPin.lng,
+                                            species: "Elder",
+                                        });
+                                    }}
                                     style={{
-                                        display: "inline-block",
                                         marginTop: "8px",
                                         textDecoration: "underline",
                                     }}
                                 >
                                     Add location here
-                                </a>
+                                </button>
                             </div>
                         </Popup>
                     </Marker>
@@ -406,9 +389,16 @@ export default function Map() {
                                     )}
 
                                     <br />
-                                    <a
-                                        href={`/add?lat=${location.latitude}&lng=${location.longitude
-                                            }&species=${encodeURIComponent(location.species)}`}
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setObservationTarget({
+                                                latitude: location.latitude,
+                                                longitude: location.longitude,
+                                                species: location.species,
+                                            })
+                                        }
                                         style={{
                                             display: "inline-block",
                                             marginTop: "8px",
@@ -417,7 +407,7 @@ export default function Map() {
                                         }}
                                     >
                                         Add observation here
-                                    </a>
+                                    </button>
 
                                     <hr style={{ margin: "8px 0" }} />
                                     <strong>History</strong>
@@ -481,7 +471,9 @@ export default function Map() {
                                                     <br />
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleDeleteObservation(observation.savedLocationId!)}
+                                                        onClick={() =>
+                                                            handleDeleteObservation(observation.savedLocationId!)
+                                                        }
                                                         style={{
                                                             marginTop: "8px",
                                                             color: "red",
@@ -500,6 +492,19 @@ export default function Map() {
                     );
                 })}
             </MapContainer>
+
+            {observationTarget && (
+                <ObservationModal
+                    latitude={observationTarget.latitude}
+                    longitude={observationTarget.longitude}
+                    species={observationTarget.species}
+                    onClose={() => setObservationTarget(null)}
+                    onSaved={() => {
+                        setObservationTarget(null);
+                        loadMapData();
+                    }}
+                />
+            )}
         </div>
     );
 }

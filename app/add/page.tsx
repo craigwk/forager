@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import exifr from "exifr";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
@@ -27,7 +27,7 @@ type SavedLocation = {
 
 export default function AddLocationPage() {
     const searchParams = useSearchParams();
-
+    const router = useRouter();
     const [photoName, setPhotoName] = useState("");
     const [photoPreview, setPhotoPreview] = useState("");
     const [observedDate, setObservedDate] = useState("");
@@ -142,7 +142,7 @@ export default function AddLocationPage() {
         }
 
         setSavedLocation(locationRecord);
-        alert("Observation saved.");
+        router.push("/");
     }
 
     return (
