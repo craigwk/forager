@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import Papa from "papaparse";
-import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 const markerIcon = new L.Icon({
     iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -16,7 +16,7 @@ const markerIcon = new L.Icon({
     shadowSize: [41, 41],
 });
 
-type TreeLocation = {
+type CsvLocation = {
     SourceFile: string;
     FileName: string;
     DateTimeOriginal: string;
@@ -24,18 +24,38 @@ type TreeLocation = {
     GPSLongitude: string;
 };
 
+type SavedLocation = {
+    id: string;
+    photoName: string;
+    observedDate: string;
+    latitude: number | null;
+    longitude: number | null;
+    species: string;
+    stage: string;
+    estimatedYield: string;
+    access: string;
+    notes: string;
+    createdAt: string;
+};
+
 export default function Map() {
-    const [trees, setTrees] = useState<TreeLocation[]>([]);
+    const [csvLocations, setCsvLocations] = useState<CsvLocation[]>([]);
+    const [savedLocations, setSavedLocations] = useState<SavedLocation[]>([]);
 
     useEffect(() => {
-        Papa.parse<TreeLocation>("/data/eldertrees.csv", {
+        Papa.parse<CsvLocation>("/data/eldertrees.csv", {
             download: true,
             header: true,
             skipEmptyLines: true,
             complete: (results) => {
-                setTrees(results.data);
+                setCsvLocations(results.data);
             },
         });
+
+        const stored = localStorage.getItem("foragerLocations");
+        if (stored) {
+            setSavedLocations(JSON.parse(stored));
+        }
     }, []);
 
     return (
@@ -49,25 +69,14 @@ export default function Map() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            {trees.map((tree) => {
+            {csvLocations.map((tree) => {
                 const lat = Number(tree.GPSLatitude);
                 const lng = Number(tree.GPSLongitude);
 
                 if (!lat || !lng) return null;
 
                 return (
-                    <Marker
-                        key={tree.FileName}
-                        position={[lat, lng]}
-                        icon={markerIcon}
-                        eventHandlers={{
-                            click: (e) => {
-                                e.target._map.setView([lat, lng], e.target._map.getZoom(), {
-                                    animate: true,
-                                });
-                            },
-                        }}
-                    >
+                    <Marker key={tree.FileName} position={[lat, lng]} icon={markerIcon}>
                         <Popup>
                             <div style={{ width: "220px" }}>
                                 <img
@@ -79,10 +88,41 @@ export default function Map() {
                                         marginBottom: "8px",
                                     }}
                                 />
-
                                 <strong>{tree.FileName}</strong>
                                 <br />
                                 Taken: {tree.DateTimeOriginal}
+                            </div>
+                        </Popup>
+                    </Marker>
+                );
+            })}
+
+            {savedLocations.map((location) => {
+                if (!location.latitude || !location.longitude) return null;
+
+                return (
+                    <Marker
+                        key={location.id}
+                        position={[location.latitude, location.longitude]}
+                        icon={markerIcon}
+                    >
+                        <Popup>
+                            <div style={{ width: "220px" }}>
+                                <strong>USER SAVED: {location.species}</strong>
+                                <br />
+                                Observed: {location.observedDate}
+                                <br />
+                                Stage: {location.stage}
+                                <br />
+                                Yield: {location.estimatedYield}
+                                <br />
+                                Access: {location.access}
+                                {location.notes && (
+                                    <>
+                                        <br />
+                                        Notes: {location.notes}
+                                    </>
+                                )}
                             </div>
                         </Popup>
                     </Marker>

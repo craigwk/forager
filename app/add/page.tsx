@@ -9,6 +9,7 @@ const AddLocationMap = dynamic(() => import("../../components/AddLocationMap"), 
 });
 
 type SavedLocation = {
+    id: string;
     photoName: string;
     observedDate: string;
     latitude: number | null;
@@ -67,6 +68,7 @@ export default function AddLocationPage() {
 
     function handleSaveLocation() {
         const locationRecord: SavedLocation = {
+            id: crypto.randomUUID(),
             photoName,
             observedDate,
             latitude,
@@ -78,6 +80,14 @@ export default function AddLocationPage() {
             notes,
             createdAt: new Date().toISOString(),
         };
+
+        const existingLocations = JSON.parse(
+            localStorage.getItem("foragerLocations") || "[]"
+        );
+
+        const updatedLocations = [...existingLocations, locationRecord];
+
+        localStorage.setItem("foragerLocations", JSON.stringify(updatedLocations));
 
         setSavedLocation(locationRecord);
         console.log("Saved location:", locationRecord);
@@ -106,6 +116,7 @@ export default function AddLocationPage() {
                 <div>
                     <label className="block mb-1 font-semibold">Location</label>
                     <AddLocationMap
+                        key={`${latitude ?? "manual"}-${longitude ?? "manual"}`}
                         latitude={latitude}
                         longitude={longitude}
                         setLatitude={setLatitude}

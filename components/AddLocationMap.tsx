@@ -46,6 +46,7 @@ export default function AddLocationMap({
             center={position}
             zoom={latitude && longitude ? 16 : 14}
             style={{ height: "300px", width: "100%", borderRadius: "8px" }}
+
         >
             <TileLayer
                 attribution="&copy; OpenStreetMap contributors"
