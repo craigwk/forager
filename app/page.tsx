@@ -9,8 +9,8 @@ const Map = dynamic(() => import("../components/Map"), {
 
 export default function Home() {
   return (
-    <main className="h-screen w-screen overflow-hidden">
-      <header className="flex h-14 items-center justify-between border-b bg-white px-4">
+    <main className="flex h-dvh w-screen flex-col overflow-hidden bg-white text-black">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b bg-white px-4">
         <div>
           <h1 className="text-xl font-bold leading-none">Forager</h1>
           <p className="text-xs text-gray-600">Harvest map</p>
@@ -21,9 +21,19 @@ export default function Home() {
         </Link>
       </header>
 
-      <section className="h-[calc(100vh-56px)]">
+      <section className="min-h-0 flex-1">
         <Map />
       </section>
+
+      <nav className="flex h-14 shrink-0 items-center justify-around border-t bg-white text-sm">
+        <Link href="/" className="font-semibold">
+          Map
+        </Link>
+        <Link href="/add" className="font-semibold">
+          Add manually
+        </Link>
+        <button type="button">Filters</button>
+      </nav>
     </main>
   );
 }

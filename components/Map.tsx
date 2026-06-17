@@ -99,7 +99,7 @@ function addToGroups(
     }
 
     groups.push({
-        id: crypto.randomUUID(),
+        id: `${species}-${latitude}-${longitude}`,
         latitude,
         longitude,
         species,
@@ -154,12 +154,24 @@ function CurrentLocationButton() {
     );
 }
 
+function ResizeMapOnMount() {
+    const map = useMap();
+
+    useEffect(() => {
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 250);
+    }, [map]);
+
+    return null;
+}
+
 export default function Map() {
     const [newPin, setNewPin] = useState<{ lat: number; lng: number } | null>(null);
     const [groupedLocations, setGroupedLocations] = useState<GroupedLocation[]>([]);
     const [speciesFilter, setSpeciesFilter] = useState("All");
     const [mapStyle, setMapStyle] = useState<"standard" | "satellite">("standard");
-    const [darkMode, setDarkMode] = useState(false);
+
 
     useEffect(() => {
         Papa.parse<CsvLocation>("/data/eldertrees.csv", {
@@ -225,10 +237,6 @@ export default function Map() {
         tileUrl =
             "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
         attribution = "Tiles &copy; Esri";
-    } else if (darkMode) {
-        tileUrl =
-            "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png";
-        attribution = "&copy; Stadia Maps &copy; OpenMapTiles &copy; OpenStreetMap contributors";
     }
 
 
@@ -238,7 +246,6 @@ export default function Map() {
                 position: "relative",
                 height: "100%",
                 width: "100%",
-                background: darkMode ? "#111" : "white",
             }}
         >
             <div
@@ -249,8 +256,8 @@ export default function Map() {
                     zIndex: 1000,
                     display: "flex",
                     gap: "6px",
-                    background: darkMode ? "#111" : "white",
-                    color: darkMode ? "white" : "black",
+                    background: "white",
+                    color: "black",
                     padding: "8px",
                     borderRadius: "10px",
                     boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
@@ -274,9 +281,6 @@ export default function Map() {
                     {mapStyle === "standard" ? "Satellite" : "Map"}
                 </button>
 
-                <button type="button" onClick={() => setDarkMode(!darkMode)}>
-                    {darkMode ? "Light" : "Dark"}
-                </button>
             </div>
 
             <MapContainer
@@ -286,6 +290,7 @@ export default function Map() {
             >
                 <TileLayer attribution={attribution} url={tileUrl} />
 
+                <ResizeMapOnMount />
                 <MapClickHandler setNewPin={setNewPin} />
                 <CurrentLocationButton />
 

@@ -92,7 +92,7 @@ export default function AddLocationPage() {
 
     function handleSaveLocation() {
         const locationRecord: SavedLocation = {
-            id: crypto.randomUUID(),
+            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
             photoName,
             observedDate,
             latitude,
