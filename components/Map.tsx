@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";;
+import { useEffect, useRef, useState } from "react";
 import Papa from "papaparse";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -306,11 +306,12 @@ export default function Map({ addRequest = 0 }: MapProps) {
     const [speciesFilter, setSpeciesFilter] = useState("All");
     const [viewMode, setViewMode] = useState<"all" | "mine">("all");
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-    const [mapStyle, setMapStyle] = useState<"standard" | "satellite">("standard")
+    const [mapStyle, setMapStyle] = useState<"standard" | "satellite">("standard");
     const [toastMessage, setToastMessage] = useState("");
     const [selectedLocation, setSelectedLocation] =
         useState<GroupedLocation | null>(null);
     const [selectedSpot, setSelectedSpot] = useState<SpotGroup | null>(null);
+    const [previousSpot, setPreviousSpot] = useState<SpotGroup | null>(null);
     const lastHandledAddRequest = useRef(0);
     const [observationTarget, setObservationTarget] = useState<{
         latitude: number;
@@ -715,6 +716,7 @@ export default function Map({ addRequest = 0 }: MapProps) {
                             key={location.id}
                             type="button"
                             onClick={() => {
+                                setPreviousSpot(selectedSpot);
                                 setSelectedLocation(location);
                                 setSelectedSpot(null);
                             }}
@@ -767,37 +769,83 @@ export default function Map({ addRequest = 0 }: MapProps) {
                         boxShadow: "0 -4px 20px rgba(0,0,0,0.2)",
                     }}
                 >
-                    <button
-                        type="button"
-                        onClick={() => setSelectedLocation(null)}
+                    <div
                         style={{
                             position: "sticky",
-                            top: 0,
-                            float: "right",
+                            top: "-14px",
                             zIndex: 50,
-                            fontSize: "24px",
-                            background: "rgba(247, 244, 237, 0.9)",
-                            border: "none",
-                            borderRadius: "999px",
-                            width: "36px",
-                            height: "36px",
-                            lineHeight: "1",
-                            color: "var(--bark)",
+                            margin: "-14px -14px 12px -14px",
+                            padding: "12px 14px",
+                            background: "rgba(247, 244, 237, 0.75)",
+                            backdropFilter: "blur(12px)",
+                            borderTopLeftRadius: "24px",
+                            borderTopRightRadius: "24px",
                         }}
                     >
-                        ×
-                    </button>
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "12px",
+                            }}
+                        >
+                            <div>
+                                {previousSpot && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSelectedSpot(previousSpot);
+                                            setSelectedLocation(null);
+                                        }}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            padding: 0,
+                                            marginBottom: "4px",
+                                            color: "var(--forest)",
+                                            fontWeight: 700,
+                                            fontSize: "14px",
+                                        }}
+                                    >
+                                        ← Species list
+                                    </button>
+                                )}
 
-                    <h2
-                        style={{
-                            fontSize: "20px",
-                            fontWeight: 800,
-                            color: "var(--forest)",
-                            marginBottom: "8px",
-                        }}
-                    >
-                        🌿 {selectedLocation.species}
-                    </h2>
+                                <h2
+                                    style={{
+                                        fontSize: "20px",
+                                        fontWeight: 800,
+                                        color: "var(--forest)",
+                                        margin: 0,
+                                    }}
+                                >
+                                    {getSpeciesEmoji(selectedLocation.species)} {selectedLocation.species}
+                                </h2>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setSelectedLocation(null);
+                                    setPreviousSpot(null);
+                                }}
+                                style={{
+                                    flexShrink: 0,
+                                    fontSize: "22px",
+                                    background: "rgba(255, 255, 255, 0.75)",
+                                    border: "none",
+                                    borderRadius: "999px",
+                                    width: "36px",
+                                    height: "36px",
+                                    lineHeight: "1",
+                                    color: "var(--bark)",
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                    </div>
 
                     <div style={{ marginBottom: "12px" }}>
                         {selectedLocation.observations.length} observation
