@@ -165,7 +165,44 @@ function ResizeMapOnMount() {
     return null;
 }
 
-export default function Map() {
+function getSpeciesEmoji(species: string) {
+    switch (species.toLowerCase()) {
+        case "elder":
+            return "🌳";
+        case "apple":
+            return "🍎";
+        case "pear":
+            return "🍐";
+        case "damson":
+            return "🟣";
+        case "wild garlic":
+            return "🌱";
+        default:
+            return "📍";
+    }
+}
+
+function getSpeciesIcon(species: string) {
+    return L.divIcon({
+        html: `
+      <div style="
+        font-size: 28px;
+        text-align:center;
+      ">
+        ${getSpeciesEmoji(species)}
+      </div>
+    `,
+        className: "",
+        iconSize: [30, 30],
+        iconAnchor: [15, 30],
+    });
+}
+
+type MapProps = {
+    addRequest?: number;
+};
+
+export default function Map({ addRequest = 0 }: MapProps) {
     const [newPin, setNewPin] = useState<{ lat: number; lng: number } | null>(null);
     const [groupedLocations, setGroupedLocations] = useState<GroupedLocation[]>([]);
     const [speciesFilter, setSpeciesFilter] = useState("All");
@@ -232,6 +269,16 @@ export default function Map() {
         loadMapData();
     }, []);
 
+    useEffect(() => {
+        if (addRequest === 0) return;
+
+        setObservationTarget({
+            latitude: 55.674,
+            longitude: -4.067,
+            species: "Elder",
+        });
+    }, [addRequest]);
+
     function handleDeleteObservation(id: string) {
         console.log("Delete later:", id);
         alert("Delete from Supabase still needs wiring back in.");
@@ -260,21 +307,30 @@ export default function Map() {
             <div
                 style={{
                     position: "absolute",
-                    top: "10px",
-                    right: "10px",
+                    top: "12px",
+                    right: "12px",
                     zIndex: 1000,
                     display: "flex",
-                    gap: "6px",
-                    background: "white",
-                    color: "black",
+                    gap: "8px",
+                    background: "rgba(247, 244, 237, 0.92)",
+                    color: "var(--bark)",
                     padding: "8px",
-                    borderRadius: "10px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                    borderRadius: "999px",
+                    boxShadow: "0 4px 14px rgba(47, 93, 80, 0.25)",
+                    backdropFilter: "blur(8px)",
                 }}
             >
                 <select
                     value={speciesFilter}
                     onChange={(e) => setSpeciesFilter(e.target.value)}
+                    style={{
+                        border: "1px solid var(--sage)",
+                        borderRadius: "999px",
+                        padding: "6px 10px",
+                        background: "var(--cream)",
+                        color: "var(--bark)",
+                        fontWeight: 600,
+                    }}
                 >
                     {availableSpecies.map((species) => (
                         <option key={species}>{species}</option>
@@ -286,6 +342,13 @@ export default function Map() {
                     onClick={() =>
                         setMapStyle(mapStyle === "standard" ? "satellite" : "standard")
                     }
+                    style={{
+                        borderRadius: "999px",
+                        background: "var(--forest)",
+                        color: "white",
+                        padding: "6px 10px",
+                        fontWeight: 600,
+                    }}
                 >
                     {mapStyle === "standard" ? "Satellite" : "Map"}
                 </button>
@@ -338,7 +401,7 @@ export default function Map() {
                         <Marker
                             key={location.id}
                             position={[location.latitude, location.longitude]}
-                            icon={markerIcon}
+                            icon={getSpeciesIcon(location.species)}
                             eventHandlers={{
                                 click: (e) => {
                                     e.target._map.setView(
@@ -355,137 +418,115 @@ export default function Map() {
                                         width: "280px",
                                         maxHeight: "420px",
                                         overflowY: "auto",
+                                        color: "var(--bark)",
                                     }}
                                 >
-                                    <strong>{location.species}</strong>
-                                    <br />
-                                    Observations: {location.observations.length}
-
-                                    {latestObservation && (
-                                        <>
-                                            <hr style={{ margin: "8px 0" }} />
-                                            <strong>Latest</strong>
-                                            <br />
-                                            Date: {latestObservation.observedDate}
-                                            {latestObservation.stage && (
-                                                <>
-                                                    <br />
-                                                    Stage: {latestObservation.stage}
-                                                </>
-                                            )}
-                                            {latestObservation.estimatedYield && (
-                                                <>
-                                                    <br />
-                                                    Yield: {latestObservation.estimatedYield}
-                                                </>
-                                            )}
-                                            {latestObservation.access && (
-                                                <>
-                                                    <br />
-                                                    Access: {latestObservation.access}
-                                                </>
-                                            )}
-                                        </>
-                                    )}
-
-                                    <br />
-
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setObservationTarget({
-                                                latitude: location.latitude,
-                                                longitude: location.longitude,
-                                                species: location.species,
-                                            })
-                                        }
+                                    <div
                                         style={{
-                                            display: "inline-block",
-                                            marginTop: "8px",
-                                            marginBottom: "8px",
-                                            textDecoration: "underline",
+                                            background: "var(--cream)",
+                                            borderRadius: "14px",
+                                            padding: "12px",
                                         }}
                                     >
-                                        Add observation here
-                                    </button>
-
-                                    <hr style={{ margin: "8px 0" }} />
-                                    <strong>History</strong>
-
-                                    {location.observations.map((observation, index) => (
-                                        <div key={`${observation.photoName}-${index}`}>
-                                            <hr style={{ margin: "8px 0" }} />
-
-                                            {observation.photoName && (
-                                                <img
-                                                    src={`/photos/${observation.photoName}`}
-                                                    alt={observation.photoName}
-                                                    style={{
-                                                        width: "100%",
-                                                        maxHeight: "140px",
-                                                        objectFit: "cover",
-                                                        borderRadius: "8px",
-                                                        marginBottom: "8px",
-                                                    }}
-                                                />
-                                            )}
-
-                                            <strong>
-                                                {observation.source === "user"
-                                                    ? "User observation"
-                                                    : "Imported photo"}
-                                            </strong>
-                                            <br />
-                                            Date: {observation.observedDate}
-
-                                            {observation.stage && (
-                                                <>
-                                                    <br />
-                                                    Stage: {observation.stage}
-                                                </>
-                                            )}
-
-                                            {observation.estimatedYield && (
-                                                <>
-                                                    <br />
-                                                    Yield: {observation.estimatedYield}
-                                                </>
-                                            )}
-
-                                            {observation.access && (
-                                                <>
-                                                    <br />
-                                                    Access: {observation.access}
-                                                </>
-                                            )}
-
-                                            {observation.notes && (
-                                                <>
-                                                    <br />
-                                                    Notes: {observation.notes}
-                                                </>
-                                            )}
-
-                                            {observation.source === "user" && observation.savedLocationId && (
-                                                <>
-                                                    <br />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleDeleteObservation(observation.savedLocationId!)
-                                                        }
-                                                        style={{
-                                                            marginTop: "8px",
-                                                            color: "red",
-                                                            textDecoration: "underline",
-                                                        }}
-                                                    >
-                                                        Delete observation
-                                                    </button>
-                                                </>
-                                            )}
+                                        <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--forest)" }}>
+                                            🌿 {location.species}
                                         </div>
-                                    ))}
+
+                                        <div style={{ fontSize: "13px", marginTop: "2px" }}>
+                                            {location.observations.length} observation
+                                            {location.observations.length === 1 ? "" : "s"}
+                                        </div>
+
+                                        {latestObservation && (
+                                            <div
+                                                style={{
+                                                    marginTop: "12px",
+                                                    padding: "10px",
+                                                    borderRadius: "12px",
+                                                    background: "white",
+                                                    border: "1px solid var(--sage)",
+                                                }}
+                                            >
+                                                <div style={{ fontWeight: 700, color: "var(--forest)" }}>Latest</div>
+                                                <div>Date: {latestObservation.observedDate}</div>
+                                                {latestObservation.stage && <div>Stage: {latestObservation.stage}</div>}
+                                                {latestObservation.estimatedYield && (
+                                                    <div>Yield: {latestObservation.estimatedYield}</div>
+                                                )}
+                                                {latestObservation.access && <div>Access: {latestObservation.access}</div>}
+                                            </div>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setObservationTarget({
+                                                    latitude: location.latitude,
+                                                    longitude: location.longitude,
+                                                    species: location.species,
+                                                })
+                                            }
+                                            style={{
+                                                marginTop: "12px",
+                                                width: "100%",
+                                                borderRadius: "999px",
+                                                background: "var(--forest)",
+                                                color: "white",
+                                                padding: "10px",
+                                                fontWeight: 700,
+                                            }}
+                                        >
+                                            Add observation
+                                        </button>
+
+                                        <details style={{ marginTop: "12px" }}>
+                                            <summary
+                                                style={{
+                                                    cursor: "pointer",
+                                                    fontWeight: 700,
+                                                    color: "var(--forest)",
+                                                }}
+                                            >
+                                                History
+                                            </summary>
+
+                                            {location.observations.map((observation, index) => (
+                                                <div
+                                                    key={`${observation.photoName}-${index}`}
+                                                    style={{
+                                                        marginTop: "10px",
+                                                        padding: "10px",
+                                                        borderRadius: "12px",
+                                                        background: "white",
+                                                        border: "1px solid #ddd",
+                                                    }}
+                                                >
+                                                    <strong>
+                                                        {observation.source === "user" ? "User observation" : "Imported photo"}
+                                                    </strong>
+                                                    <div>Date: {observation.observedDate}</div>
+                                                    {observation.stage && <div>Stage: {observation.stage}</div>}
+                                                    {observation.estimatedYield && <div>Yield: {observation.estimatedYield}</div>}
+                                                    {observation.access && <div>Access: {observation.access}</div>}
+                                                    {observation.notes && <div>Notes: {observation.notes}</div>}
+
+                                                    {observation.source === "user" && observation.savedLocationId && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteObservation(observation.savedLocationId!)}
+                                                            style={{
+                                                                marginTop: "8px",
+                                                                color: "#b42318",
+                                                                textDecoration: "underline",
+                                                            }}
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </details>
+                                    </div>
                                 </div>
                             </Popup>
                         </Marker>

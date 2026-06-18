@@ -4,6 +4,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --forest: #2f5d50;
+  --moss: #5f7d4c;
+  --sage: #a8b89a;
+  --cream: #f7f4ed;
+  --bark: #5b4636;
+
 }
 
 @theme inline {

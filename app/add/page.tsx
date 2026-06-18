@@ -7,6 +7,7 @@ import exifr from "exifr";
 import Link from "next/link";
 import { supabase } from "../../lib/supabase";
 
+
 const AddLocationMap = dynamic(() => import("../../components/AddLocationMap"), {
     ssr: false,
 });
@@ -118,6 +119,10 @@ export default function AddLocationPage() {
             photoName,
         });
 
+        const {
+            data: { user },
+        } = await supabase.auth.getUser();
+
         const { data, error } = await supabase
             .from("observations")
             .insert({
@@ -130,6 +135,7 @@ export default function AddLocationPage() {
                 access,
                 notes,
                 photo_name: photoName,
+                created_by: user?.id,
             })
             .select();
 
