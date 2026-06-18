@@ -6,6 +6,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { supabase } from "../lib/supabase";
 import ObservationModal from "./ObservationModal";
+import { SPECIES } from "../data/species";
 import {
     MapContainer,
     TileLayer,
@@ -13,6 +14,7 @@ import {
     Popup,
     useMap,
     useMapEvents,
+    CircleMarker,
 } from "react-leaflet";
 
 const markerIcon = new L.Icon({
@@ -123,13 +125,34 @@ function MapClickHandler({
     return null;
 }
 
-function CurrentLocationButton() {
+function CurrentLocationButton({
+    setUserLocation,
+}: {
+    setUserLocation: (location: { lat: number; lng: number }) => void;
+}) {
     const map = useMap();
 
     function goToCurrentLocation() {
-        navigator.geolocation.getCurrentPosition((position) => {
-            map.flyTo([position.coords.latitude, position.coords.longitude], 17);
-        });
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const location = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                };
+
+                setUserLocation(location);
+                map.flyTo([location.lat, location.lng], 17);
+            },
+            (error) => {
+                console.error("Location error:", error);
+                alert("Could not get your current location.");
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+            }
+        );
     }
 
     return (
@@ -166,32 +189,22 @@ function ResizeMapOnMount() {
 }
 
 function getSpeciesEmoji(species: string) {
-    switch (species.toLowerCase()) {
-        case "elder":
-            return "🌳";
-        case "apple":
-            return "🍎";
-        case "pear":
-            return "🍐";
-        case "damson":
-            return "🟣";
-        case "wild garlic":
-            return "🌱";
-        default:
-            return "📍";
-    }
+    return (
+        SPECIES.find((item) => item.name.toLowerCase() === species.toLowerCase())
+            ?.emoji ?? "📍"
+    );
 }
 
 function getSpeciesIcon(species: string) {
     return L.divIcon({
         html: `
-      <div style="
-        font-size: 28px;
-        text-align:center;
-      ">
-        ${getSpeciesEmoji(species)}
-      </div>
-    `,
+            <div style="
+                font-size: 28px;
+                text-align:center;
+            ">
+                ${getSpeciesEmoji(species)}
+            </div>
+        `,
         className: "",
         iconSize: [30, 30],
         iconAnchor: [15, 30],
@@ -206,6 +219,8 @@ export default function Map({ addRequest = 0 }: MapProps) {
     const [newPin, setNewPin] = useState<{ lat: number; lng: number } | null>(null);
     const [groupedLocations, setGroupedLocations] = useState<GroupedLocation[]>([]);
     const [speciesFilter, setSpeciesFilter] = useState("All");
+    const [viewMode, setViewMode] = useState<"all" | "mine">("all");
+    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [mapStyle, setMapStyle] = useState<"standard" | "satellite">("standard");
     const [observationTarget, setObservationTarget] = useState<{
         latitude: number;
@@ -223,22 +238,37 @@ export default function Map({ addRequest = 0 }: MapProps) {
             complete: async (results) => {
                 const groups: GroupedLocation[] = [];
 
-                results.data.forEach((tree) => {
-                    const lat = Number(tree.GPSLatitude);
-                    const lng = Number(tree.GPSLongitude);
-                    if (!lat || !lng) return;
+                if (viewMode === "all") {
+                    results.data.forEach((tree) => {
+                        const lat = Number(tree.GPSLatitude);
+                        const lng = Number(tree.GPSLongitude);
+                        if (!lat || !lng) return;
 
-                    addToGroups(groups, lat, lng, "Elder", {
-                        source: "csv",
-                        photoName: tree.FileName,
-                        observedDate: tree.DateTimeOriginal,
-                        species: "Elder",
+                        addToGroups(groups, lat, lng, "Elder", {
+                            source: "csv",
+                            photoName: tree.FileName,
+                            observedDate: tree.DateTimeOriginal,
+                            species: "Elder",
+                        });
                     });
-                });
+                }
 
-                const { data: savedLocations, error } = await supabase
-                    .from("observations")
-                    .select("*");
+                const {
+                    data: { user },
+                } = await supabase.auth.getUser();
+
+                let query = supabase.from("observations").select("*");
+
+                if (viewMode === "mine") {
+                    if (!user) {
+                        setGroupedLocations([]);
+                        return;
+                    }
+
+                    query = query.eq("created_by", user.id);
+                }
+
+                const { data: savedLocations, error } = await query;
 
                 if (error) {
                     console.error("Error loading observations:", error);
@@ -246,17 +276,23 @@ export default function Map({ addRequest = 0 }: MapProps) {
                     (savedLocations as SupabaseObservation[]).forEach((location) => {
                         if (!location.latitude || !location.longitude) return;
 
-                        addToGroups(groups, location.latitude, location.longitude, location.species, {
-                            source: "user",
-                            savedLocationId: location.id,
-                            photoName: location.photo_name ?? "",
-                            observedDate: location.observed_date ?? "",
-                            species: location.species,
-                            stage: location.stage ?? undefined,
-                            estimatedYield: location.estimated_yield ?? undefined,
-                            access: location.access ?? undefined,
-                            notes: location.notes ?? undefined,
-                        });
+                        addToGroups(
+                            groups,
+                            location.latitude,
+                            location.longitude,
+                            location.species,
+                            {
+                                source: "user",
+                                savedLocationId: location.id,
+                                photoName: location.photo_name ?? "",
+                                observedDate: location.observed_date ?? "",
+                                species: location.species,
+                                stage: location.stage ?? undefined,
+                                estimatedYield: location.estimated_yield ?? undefined,
+                                access: location.access ?? undefined,
+                                notes: location.notes ?? undefined,
+                            }
+                        );
                     });
                 }
 
@@ -267,7 +303,7 @@ export default function Map({ addRequest = 0 }: MapProps) {
 
     useEffect(() => {
         loadMapData();
-    }, []);
+    }, [viewMode]);
 
     useEffect(() => {
         if (addRequest === 0) return;
@@ -279,9 +315,33 @@ export default function Map({ addRequest = 0 }: MapProps) {
         });
     }, [addRequest]);
 
-    function handleDeleteObservation(id: string) {
-        console.log("Delete later:", id);
-        alert("Delete from Supabase still needs wiring back in.");
+    async function handleDeleteObservation(id: string) {
+        const confirmed = confirm("Delete this observation?");
+
+        if (!confirmed) return;
+
+        console.log("Deleting observation:", id);
+
+        const { data, error } = await supabase
+            .from("observations")
+            .delete()
+            .eq("id", id)
+            .select();
+
+        console.log("Delete result:", { data, error });
+
+        if (error) {
+            console.error("Delete error:", error);
+            alert("Could not delete observation.");
+            return;
+        }
+
+        if (!data || data.length === 0) {
+            alert("Nothing was deleted. This may be a permissions/RLS issue.");
+            return;
+        }
+
+        await loadMapData();
     }
 
     const availableSpecies = [
@@ -311,12 +371,13 @@ export default function Map({ addRequest = 0 }: MapProps) {
                     right: "12px",
                     zIndex: 1000,
                     display: "flex",
-                    gap: "8px",
-                    background: "rgba(247, 244, 237, 0.92)",
+                    alignItems: "center",
+                    gap: "6px",
+                    background: "rgba(247, 244, 237, 0.95)",
                     color: "var(--bark)",
-                    padding: "8px",
+                    padding: "6px",
                     borderRadius: "999px",
-                    boxShadow: "0 4px 14px rgba(47, 93, 80, 0.25)",
+                    boxShadow: "0 4px 14px rgba(47, 93, 80, 0.2)",
                     backdropFilter: "blur(8px)",
                 }}
             >
@@ -326,10 +387,12 @@ export default function Map({ addRequest = 0 }: MapProps) {
                     style={{
                         border: "1px solid var(--sage)",
                         borderRadius: "999px",
-                        padding: "6px 10px",
+                        padding: "5px 28px 5px 10px",
                         background: "var(--cream)",
                         color: "var(--bark)",
                         fontWeight: 600,
+                        fontSize: "13px",
+                        height: "34px",
                     }}
                 >
                     {availableSpecies.map((species) => (
@@ -346,11 +409,33 @@ export default function Map({ addRequest = 0 }: MapProps) {
                         borderRadius: "999px",
                         background: "var(--forest)",
                         color: "white",
-                        padding: "6px 10px",
+                        border: "1px solid var(--forest)",
+                        padding: "5px 10px",
                         fontWeight: 600,
+                        fontSize: "13px",
+                        height: "34px",
+                        lineHeight: "1",
                     }}
                 >
                     {mapStyle === "standard" ? "Satellite" : "Map"}
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => setViewMode(viewMode === "all" ? "mine" : "all")}
+                    style={{
+                        borderRadius: "999px",
+                        background: viewMode === "mine" ? "var(--forest)" : "var(--cream)",
+                        color: viewMode === "mine" ? "white" : "var(--bark)",
+                        border: "1px solid var(--sage)",
+                        padding: "5px 10px",
+                        fontWeight: 600,
+                        fontSize: "13px",
+                        height: "34px",
+                        lineHeight: "1",
+                    }}
+                >
+                    {viewMode === "all" ? "All" : "Mine"}
                 </button>
             </div>
 
@@ -363,7 +448,7 @@ export default function Map({ addRequest = 0 }: MapProps) {
 
                 <ResizeMapOnMount />
                 <MapClickHandler setNewPin={setNewPin} />
-                <CurrentLocationButton />
+                <CurrentLocationButton setUserLocation={setUserLocation} />
 
                 {newPin && (
                     <Marker position={[newPin.lat, newPin.lng]} icon={markerIcon}>
@@ -392,6 +477,21 @@ export default function Map({ addRequest = 0 }: MapProps) {
                             </div>
                         </Popup>
                     </Marker>
+                )}
+
+                {userLocation && (
+                    <CircleMarker
+                        center={[userLocation.lat, userLocation.lng]}
+                        radius={8}
+                        pathOptions={{
+                            color: "#2563eb",
+                            fillColor: "#3b82f6",
+                            fillOpacity: 0.9,
+                            weight: 3,
+                        }}
+                    >
+                        <Popup>Your current location</Popup>
+                    </CircleMarker>
                 )}
 
                 {filteredLocations.map((location) => {
@@ -428,7 +528,13 @@ export default function Map({ addRequest = 0 }: MapProps) {
                                             padding: "12px",
                                         }}
                                     >
-                                        <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--forest)" }}>
+                                        <div
+                                            style={{
+                                                fontSize: "18px",
+                                                fontWeight: 800,
+                                                color: "var(--forest)",
+                                            }}
+                                        >
                                             🌿 {location.species}
                                         </div>
 
@@ -447,13 +553,26 @@ export default function Map({ addRequest = 0 }: MapProps) {
                                                     border: "1px solid var(--sage)",
                                                 }}
                                             >
-                                                <div style={{ fontWeight: 700, color: "var(--forest)" }}>Latest</div>
+                                                <div
+                                                    style={{
+                                                        fontWeight: 700,
+                                                        color: "var(--forest)",
+                                                    }}
+                                                >
+                                                    Latest
+                                                </div>
                                                 <div>Date: {latestObservation.observedDate}</div>
-                                                {latestObservation.stage && <div>Stage: {latestObservation.stage}</div>}
-                                                {latestObservation.estimatedYield && (
-                                                    <div>Yield: {latestObservation.estimatedYield}</div>
+                                                {latestObservation.stage && (
+                                                    <div>Stage: {latestObservation.stage}</div>
                                                 )}
-                                                {latestObservation.access && <div>Access: {latestObservation.access}</div>}
+                                                {latestObservation.estimatedYield && (
+                                                    <div>
+                                                        Yield: {latestObservation.estimatedYield}
+                                                    </div>
+                                                )}
+                                                {latestObservation.access && (
+                                                    <div>Access: {latestObservation.access}</div>
+                                                )}
                                             </div>
                                         )}
 
@@ -502,27 +621,42 @@ export default function Map({ addRequest = 0 }: MapProps) {
                                                     }}
                                                 >
                                                     <strong>
-                                                        {observation.source === "user" ? "User observation" : "Imported photo"}
+                                                        {observation.source === "user"
+                                                            ? "User observation"
+                                                            : "Imported photo"}
                                                     </strong>
                                                     <div>Date: {observation.observedDate}</div>
-                                                    {observation.stage && <div>Stage: {observation.stage}</div>}
-                                                    {observation.estimatedYield && <div>Yield: {observation.estimatedYield}</div>}
-                                                    {observation.access && <div>Access: {observation.access}</div>}
-                                                    {observation.notes && <div>Notes: {observation.notes}</div>}
-
-                                                    {observation.source === "user" && observation.savedLocationId && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleDeleteObservation(observation.savedLocationId!)}
-                                                            style={{
-                                                                marginTop: "8px",
-                                                                color: "#b42318",
-                                                                textDecoration: "underline",
-                                                            }}
-                                                        >
-                                                            Delete
-                                                        </button>
+                                                    {observation.stage && (
+                                                        <div>Stage: {observation.stage}</div>
                                                     )}
+                                                    {observation.estimatedYield && (
+                                                        <div>Yield: {observation.estimatedYield}</div>
+                                                    )}
+                                                    {observation.access && (
+                                                        <div>Access: {observation.access}</div>
+                                                    )}
+                                                    {observation.notes && (
+                                                        <div>Notes: {observation.notes}</div>
+                                                    )}
+
+                                                    {observation.source === "user" &&
+                                                        observation.savedLocationId && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    handleDeleteObservation(
+                                                                        observation.savedLocationId!
+                                                                    )
+                                                                }
+                                                                style={{
+                                                                    marginTop: "8px",
+                                                                    color: "#b42318",
+                                                                    textDecoration: "underline",
+                                                                }}
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        )}
                                                 </div>
                                             ))}
                                         </details>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import exifr from "exifr";
 import { supabase } from "../lib/supabase";
+import { SPECIES } from "../data/species";
 
 type Props = {
     latitude: number;
@@ -170,13 +171,9 @@ export default function ObservationModal({
                             onChange={(e) => setSpecies(e.target.value)}
                             className="w-full rounded border p-2"
                         >
-                            <option>Elder</option>
-                            <option>Apple</option>
-                            <option>Pear</option>
-                            <option>Damson</option>
-                            <option>Sloe</option>
-                            <option>Wild Garlic</option>
-                            <option>Other</option>
+                            {SPECIES.map((item) => (
+                                <option key={item.name}>{item.name}</option>
+                            ))}
                         </select>
                     </div>
 
