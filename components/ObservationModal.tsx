@@ -34,7 +34,7 @@ export default function ObservationModal({
     const [photoName, setPhotoName] = useState("");
     const [photoPreview, setPhotoPreview] = useState("");
     const [photoFile, setPhotoFile] = useState<File | null>(null);
-
+    const [toastMessage, setToastMessage] = useState("");
     const [currentLatitude, setCurrentLatitude] = useState(latitude);
     const [currentLongitude, setCurrentLongitude] = useState(longitude);
     const [locationSource, setLocationSource] = useState("Map pin");
@@ -94,7 +94,8 @@ export default function ObservationModal({
         } = await supabase.auth.getUser();
 
         if (photoFile && !user) {
-            alert("Please sign in before uploading a photo.");
+            setToastMessage("📷 Sign in to upload photos.");
+            setTimeout(() => setToastMessage(""), 4000);
             setSaving(false);
             return;
         }
@@ -286,6 +287,25 @@ export default function ObservationModal({
                     </button>
                 </div>
             </div>
+            {toastMessage && (
+                <div
+                    style={{
+                        position: "fixed",
+                        left: "50%",
+                        bottom: "24px",
+                        transform: "translateX(-50%)",
+                        background: "var(--forest)",
+                        color: "white",
+                        padding: "12px 16px",
+                        borderRadius: "999px",
+                        fontWeight: 600,
+                        zIndex: 3000,
+                        boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+                    }}
+                >
+                    {toastMessage}
+                </div>
+            )}
         </div>
     );
 }
