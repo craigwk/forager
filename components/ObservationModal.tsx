@@ -93,6 +93,12 @@ export default function ObservationModal({
             data: { user },
         } = await supabase.auth.getUser();
 
+        if (photoFile && !user) {
+            alert("Please sign in before uploading a photo.");
+            setSaving(false);
+            return;
+        }
+
         let photoUrl: string | null = null;
 
         if (photoFile) {
