@@ -310,6 +310,7 @@ export default function Map({ addRequest = 0 }: MapProps) {
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [mapStyle, setMapStyle] = useState<"standard" | "satellite">("standard");
     const [toastMessage, setToastMessage] = useState("");
+    const [showAddChoice, setShowAddChoice] = useState(false);
     const [selectedLocation, setSelectedLocation] =
         useState<GroupedLocation | null>(null);
     const [selectedSpot, setSelectedSpot] = useState<SpotGroup | null>(null);
@@ -412,26 +413,7 @@ export default function Map({ addRequest = 0 }: MapProps) {
         if (addRequest === lastHandledAddRequest.current) return;
 
         lastHandledAddRequest.current = addRequest;
-
-        if (userLocation) {
-            setObservationTarget({
-                latitude: userLocation.lat,
-                longitude: userLocation.lng,
-                species: "Elder",
-            });
-            return;
-        }
-
-        if (newPin) {
-            setObservationTarget({
-                latitude: newPin.lat,
-                longitude: newPin.lng,
-                species: "Elder",
-            });
-            return;
-        }
-
-        showToast("📍 Use the location button first, or tap the map to choose a location.");
+        setShowAddChoice(true);
     }, [addRequest]);
 
     async function handleDeleteObservation(id: string) {
@@ -640,6 +622,142 @@ export default function Map({ addRequest = 0 }: MapProps) {
                     />
                 ))}
             </MapContainer>
+
+            {showAddChoice && (
+                <div
+                    style={{
+                        position: "absolute",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: "min(500px, calc(100% - 24px))",
+                        bottom: "12px",
+                        zIndex: 1600,
+                        background: "rgba(247, 244, 237, 0.92)",
+                        backdropFilter: "blur(12px)",
+                        animation: "slideUpSheet 180ms ease-out",
+                        borderRadius: "24px",
+                        padding: "14px",
+                        boxShadow: "0 -4px 20px rgba(0,0,0,0.2)",
+                    }}
+                >
+                    <button
+                        type="button"
+                        onClick={() => setShowAddChoice(false)}
+                        style={{
+                            position: "absolute",
+                            right: "16px",
+                            top: "12px",
+                            fontSize: "24px",
+                            background: "none",
+                            border: "none",
+                        }}
+                    >
+                        ×
+                    </button>
+
+                    <h2
+                        style={{
+                            fontSize: "18px",
+                            fontWeight: 800,
+                            color: "var(--forest)",
+                            marginBottom: "8px",
+                        }}
+                    >
+                        Add observation
+                    </h2>
+
+                    <p style={{ marginBottom: "12px", fontSize: "14px" }}>
+                        Choose how to set the observation location.
+                    </p>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowAddChoice(false);
+
+                            setObservationTarget({
+                                latitude: userLocation?.lat ?? newPin?.lat ?? 55.674,
+                                longitude: userLocation?.lng ?? newPin?.lng ?? -4.067,
+                                species: "Elder",
+                            });
+
+                            showToast("📸 Add a photo. If it contains GPS, Forager will use the photo location.");
+                        }}
+                        style={{
+                            width: "100%",
+                            marginBottom: "8px",
+                            padding: "12px",
+                            borderRadius: "14px",
+                            background: "rgba(255,255,255,0.85)",
+                            border: "1px solid var(--sage)",
+                            textAlign: "left",
+                            fontWeight: 700,
+                            color: "var(--forest)",
+                        }}
+                    >
+                        📸 From photo
+                        <span style={{ display: "block", fontSize: "12px", fontWeight: 500, color: "var(--bark)" }}>
+                            Uses photo GPS and date if available.
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (!userLocation) {
+                                showToast("📍 Use the location button first to get your GPS position.");
+                                return;
+                            }
+
+                            setShowAddChoice(false);
+                            setObservationTarget({
+                                latitude: userLocation.lat,
+                                longitude: userLocation.lng,
+                                species: "Elder",
+                            });
+                        }}
+                        style={{
+                            width: "100%",
+                            marginBottom: "8px",
+                            padding: "12px",
+                            borderRadius: "14px",
+                            background: "rgba(255,255,255,0.85)",
+                            border: "1px solid var(--sage)",
+                            textAlign: "left",
+                            fontWeight: 700,
+                            color: "var(--forest)",
+                        }}
+                    >
+                        📍 Current location
+                        <span style={{ display: "block", fontSize: "12px", fontWeight: 500, color: "var(--bark)" }}>
+                            Best when you are standing beside the plant.
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowAddChoice(false);
+                            showToast("🗺️ Tap the map to place a pin, then choose Add location here.");
+                        }}
+                        style={{
+                            width: "100%",
+                            padding: "12px",
+                            borderRadius: "14px",
+                            background: "rgba(255,255,255,0.85)",
+                            border: "1px solid var(--sage)",
+                            textAlign: "left",
+                            fontWeight: 700,
+                            color: "var(--forest)",
+                        }}
+                    >
+                        🗺️ Pick on map
+                        <span style={{ display: "block", fontSize: "12px", fontWeight: 500, color: "var(--bark)" }}>
+                            Best for adding something you saw earlier.
+                        </span>
+                    </button>
+                </div>
+            )}
 
             {selectedSpot && (
                 <div

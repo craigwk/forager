@@ -56,6 +56,12 @@ export default function ObservationModal({
             const date = new Date(exif.DateTimeOriginal);
             setObservedDate(date.toISOString().split("T")[0]);
         }
+
+        if (exif?.latitude && exif?.longitude) {
+            setCurrentLatitude(exif.latitude);
+            setCurrentLongitude(exif.longitude);
+            setLocationSource("Photo GPS");
+        }
     }
 
     function useCurrentLocation() {
