@@ -41,6 +41,7 @@ type Observation = {
     source: "csv" | "user";
     savedLocationId?: string;
     photoName: string;
+    photoUrl?: string;
     observedDate: string;
     species: string;
     stage?: string;
@@ -75,6 +76,7 @@ type SupabaseObservation = {
     access: string | null;
     notes: string | null;
     photo_name: string | null;
+    photo_url: string | null;
 };
 
 function distanceInMetres(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -384,6 +386,7 @@ export default function Map({ addRequest = 0 }: MapProps) {
                                 source: "user",
                                 savedLocationId: location.id,
                                 photoName: location.photo_name ?? "",
+                                photoUrl: location.photo_url ?? "",
                                 observedDate: location.observed_date ?? "",
                                 species: location.species,
                                 stage: location.stage ?? undefined,
@@ -885,6 +888,19 @@ export default function Map({ addRequest = 0 }: MapProps) {
                                 border: "1px solid #ddd",
                             }}
                         >
+
+                            {observation.photoUrl && (
+                                <img
+                                    src={observation.photoUrl}
+                                    alt={observation.photoName}
+                                    style={{
+                                        width: "100%",
+                                        borderRadius: "12px",
+                                        marginBottom: "8px",
+                                    }}
+                                />
+                            )}
+
                             <strong>
                                 {observation.source === "user"
                                     ? "User observation"

@@ -33,6 +33,7 @@ export default function ObservationModal({
     const [saving, setSaving] = useState(false);
     const [photoName, setPhotoName] = useState("");
     const [photoPreview, setPhotoPreview] = useState("");
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
 
     const [currentLatitude, setCurrentLatitude] = useState(latitude);
     const [currentLongitude, setCurrentLongitude] = useState(longitude);
@@ -45,6 +46,7 @@ export default function ObservationModal({
         const file = event.target.files?.[0];
         if (!file) return;
 
+        setPhotoFile(file);
         setPhotoName(file.name);
         setPhotoPreview(URL.createObjectURL(file));
 
@@ -91,6 +93,30 @@ export default function ObservationModal({
             data: { user },
         } = await supabase.auth.getUser();
 
+        let photoUrl: string | null = null;
+
+        if (photoFile) {
+            const fileExt = photoFile.name.split(".").pop();
+            const filePath = `${user?.id ?? "anonymous"}/${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from("observations-photos")
+                .upload(filePath, photoFile);
+
+            if (uploadError) {
+                console.error("Upload error:", uploadError);
+                alert(`Could not upload photo: ${uploadError.message}`);
+                setSaving(false);
+                return;
+            }
+
+            const { data } = supabase.storage
+                .from("observations-photos")
+                .getPublicUrl(filePath);
+
+            photoUrl = data.publicUrl;
+        }
+
         const { error } = await supabase.from("observations").insert({
             species,
             observed_date: observedDate || null,
@@ -101,6 +127,7 @@ export default function ObservationModal({
             access,
             notes,
             photo_name: photoName,
+            photo_url: photoUrl,
             created_by: user?.id ?? null,
         });
 
