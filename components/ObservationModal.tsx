@@ -213,147 +213,184 @@ export default function ObservationModal({
                             Photo (optional)
                         </label>
 
-                        <label
-                            htmlFor="photo-upload"
-                            className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--sage)] bg-white/40 p-6 text-center transition hover:bg-white/60"
-                        >
-                            <div className="text-3xl">📸</div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <label
+                                htmlFor="camera-upload"
+                                className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--sage)] bg-white/40 p-4 text-center"
+                            >
+                                <div className="text-3xl">📸</div>
 
-                            <div className="mt-2 font-semibold text-[var(--forest)]">
-                                {photoName ? "Retake / Change photo" : "Take or add photo"}
-                            </div>
+                                <div className="mt-2 font-semibold text-[var(--forest)]">
+                                    Take photo
+                                </div>
 
-                            <div className="mt-1 text-sm text-gray-600">
-                                GPS and date will be read automatically if available
-                            </div>
-                        </label>
+                                <div className="mt-1 text-xs text-gray-600">
+                                    Open camera
+                                </div>
+                            </label>
 
-                        <input
-                            id="photo-upload"
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            onChange={handlePhotoChange}
-                            className="hidden"
+                            <label
+                                htmlFor="gallery-upload"
+                                className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--sage)] bg-white/40 p-4 text-center"
+                            >
+                                <div className="text-3xl">🖼️</div>
+
+                                <div className="mt-2 font-semibold text-[var(--forest)]">
+                                    Choose photo
+                                </div>
+
+                                <div className="mt-1 text-xs text-gray-600">
+                                    From library
+                                </div>
+                            </label>
+                        </div>
+                        <div className="text-3xl">📸</div>
+
+                        <div className="mt-2 font-semibold text-[var(--forest)]">
+                            {photoName ? "Retake / Change photo" : "Take or add photo"}
+                        </div>
+
+                        <div className="mt-1 text-sm text-gray-600">
+                            GPS and date will be read automatically if available
+                        </div>
+                    </label>
+
+                    <input
+                        id="camera-upload"
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                    />
+
+                    <input
+                        id="gallery-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                    />
+
+                    {photoPreview && (
+                        <img
+                            src={photoPreview}
+                            alt={photoName}
+                            className="mt-3 w-full rounded-2xl border object-cover"
                         />
+                    )}
+                </div>
 
-                        {photoPreview && (
-                            <img
-                                src={photoPreview}
-                                alt={photoName}
-                                className="mt-3 w-full rounded-2xl border object-cover"
-                            />
-                        )}
-                    </div>
-
-                    <div>
-                        <label className="block mb-1 font-semibold">Species</label>
-                        <select
-                            value={species}
-                            onChange={(e) => setSpecies(e.target.value)}
-                            className="w-full rounded border p-2"
-                        >
-                            {SPECIES.map((item) => (
-                                <option key={item.name}>{item.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block mb-1 font-semibold">Observed Date</label>
-                        <input
-                            type="date"
-                            value={observedDate}
-                            onChange={(e) => setObservedDate(e.target.value)}
-                            className="w-full rounded border p-2"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block mb-1 font-semibold">Stage at Observation</label>
-                        <select
-                            value={stage}
-                            onChange={(e) => setStage(e.target.value)}
-                            className="w-full rounded border p-2"
-                        >
-                            <option>Budding</option>
-                            <option>Peak flower</option>
-                            <option>Past flower</option>
-                            <option>Green berries / fruit</option>
-                            <option>Ripe berries / fruit</option>
-                            <option>Dormant / not in season</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block mb-1 font-semibold">Estimated yield</label>
-                        <select
-                            value={estimatedYield}
-                            onChange={(e) => setEstimatedYield(e.target.value)}
-                            className="w-full rounded border p-2"
-                        >
-                            <option>&lt;20 heads / very small</option>
-                            <option>20-50 heads / small</option>
-                            <option>50-100 heads / medium</option>
-                            <option>100+ heads / large</option>
-                            <option>Huge / exceptional</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block mb-1 font-semibold">Access</label>
-                        <select
-                            value={access}
-                            onChange={(e) => setAccess(e.target.value)}
-                            className="w-full rounded border p-2"
-                        >
-                            <option>Public</option>
-                            <option>Public but awkward</option>
-                            <option>Visible but private</option>
-                            <option>Unknown</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block mb-1 font-semibold">Notes</label>
-                        <textarea
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            className="w-full rounded border p-2"
-                            rows={4}
-                            placeholder="e.g. checked today, now past flower"
-                        />
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="w-full rounded-full bg-[var(--forest)] px-4 py-3 font-semibold text-white shadow disabled:opacity-50"
+                <div>
+                    <label className="block mb-1 font-semibold">Species</label>
+                    <select
+                        value={species}
+                        onChange={(e) => setSpecies(e.target.value)}
+                        className="w-full rounded border p-2"
                     >
-                        {saving ? "Saving..." : "Save observation"}
-                    </button>
+                        {SPECIES.map((item) => (
+                            <option key={item.name}>{item.name}</option>
+                        ))}
+                    </select>
                 </div>
-            </div>
-            {toastMessage && (
-                <div
-                    style={{
-                        position: "fixed",
-                        left: "50%",
-                        bottom: "24px",
-                        transform: "translateX(-50%)",
-                        background: "var(--forest)",
-                        color: "white",
-                        padding: "12px 16px",
-                        borderRadius: "999px",
-                        fontWeight: 600,
-                        zIndex: 3000,
-                        boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
-                    }}
+
+                <div>
+                    <label className="block mb-1 font-semibold">Observed Date</label>
+                    <input
+                        type="date"
+                        value={observedDate}
+                        onChange={(e) => setObservedDate(e.target.value)}
+                        className="w-full rounded border p-2"
+                    />
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Stage at Observation</label>
+                    <select
+                        value={stage}
+                        onChange={(e) => setStage(e.target.value)}
+                        className="w-full rounded border p-2"
+                    >
+                        <option>Budding</option>
+                        <option>Peak flower</option>
+                        <option>Past flower</option>
+                        <option>Green berries / fruit</option>
+                        <option>Ripe berries / fruit</option>
+                        <option>Dormant / not in season</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Estimated yield</label>
+                    <select
+                        value={estimatedYield}
+                        onChange={(e) => setEstimatedYield(e.target.value)}
+                        className="w-full rounded border p-2"
+                    >
+                        <option>&lt;20 heads / very small</option>
+                        <option>20-50 heads / small</option>
+                        <option>50-100 heads / medium</option>
+                        <option>100+ heads / large</option>
+                        <option>Huge / exceptional</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Access</label>
+                    <select
+                        value={access}
+                        onChange={(e) => setAccess(e.target.value)}
+                        className="w-full rounded border p-2"
+                    >
+                        <option>Public</option>
+                        <option>Public but awkward</option>
+                        <option>Visible but private</option>
+                        <option>Unknown</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block mb-1 font-semibold">Notes</label>
+                    <textarea
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        className="w-full rounded border p-2"
+                        rows={4}
+                        placeholder="e.g. checked today, now past flower"
+                    />
+                </div>
+
+                <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="w-full rounded-full bg-[var(--forest)] px-4 py-3 font-semibold text-white shadow disabled:opacity-50"
                 >
-                    {toastMessage}
-                </div>
-            )}
+                    {saving ? "Saving..." : "Save observation"}
+                </button>
+            </div>
         </div>
+            {
+        toastMessage && (
+            <div
+                style={{
+                    position: "fixed",
+                    left: "50%",
+                    bottom: "24px",
+                    transform: "translateX(-50%)",
+                    background: "var(--forest)",
+                    color: "white",
+                    padding: "12px 16px",
+                    borderRadius: "999px",
+                    fontWeight: 600,
+                    zIndex: 3000,
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+                }}
+            >
+                {toastMessage}
+            </div>
+        )
+    }
+        </div >
     );
 }
