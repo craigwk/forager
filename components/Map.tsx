@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { MutableRefObject, useEffect, useRef, useState } from "react";
 import Papa from "papaparse";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { supabase } from "../lib/supabase";
 import ObservationModal from "./ObservationModal";
 import { SPECIES } from "../data/species";
@@ -125,12 +124,19 @@ function addToGroups(
 function MapClickHandler({
     setNewPin,
     clearToast,
+    ignoreNextMapClick,
 }: {
     setNewPin: (pin: { lat: number; lng: number }) => void;
     clearToast: () => void;
+    ignoreNextMapClick: MutableRefObject<boolean>
 }) {
     useMapEvents({
         click(e) {
+            if (ignoreNextMapClick.current) {
+                ignoreNextMapClick.current = false;
+                return;
+            }
+
             clearToast();
             setNewPin({ lat: e.latlng.lat, lng: e.latlng.lng });
         },
@@ -141,8 +147,10 @@ function MapClickHandler({
 
 function CurrentLocationButton({
     setUserLocation,
+    ignoreNextMapClick,
 }: {
     setUserLocation: (location: { lat: number; lng: number }) => void;
+    ignoreNextMapClick: MutableRefObject<boolean>
 }) {
     const map = useMap();
 
@@ -172,9 +180,16 @@ function CurrentLocationButton({
     return (
         <button
             type="button"
-            onClick={goToCurrentLocation}
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                ignoreNextMapClick.current = true;
+                goToCurrentLocation();
+            }}
+
             style={{
                 position: "absolute",
+                pointerEvents: "auto",
                 right: "10px",
                 bottom: "20px",
                 zIndex: 1000,
@@ -316,6 +331,7 @@ export default function Map({ addRequest = 0 }: MapProps) {
     const [selectedSpot, setSelectedSpot] = useState<SpotGroup | null>(null);
     const [previousSpot, setPreviousSpot] = useState<SpotGroup | null>(null);
     const lastHandledAddRequest = useRef(0);
+    const ignoreNextMapClick = useRef(false);
     const [observationTarget, setObservationTarget] = useState<{
         latitude: number;
         longitude: number;
@@ -550,11 +566,17 @@ export default function Map({ addRequest = 0 }: MapProps) {
                 <TileLayer attribution={attribution} url={tileUrl} />
 
                 <ResizeMapOnMount />
+
                 <MapClickHandler
                     setNewPin={setNewPin}
                     clearToast={() => setToastMessage("")}
+                    ignoreNextMapClick={ignoreNextMapClick}
                 />
-                <CurrentLocationButton setUserLocation={setUserLocation} />
+
+                <CurrentLocationButton
+                    setUserLocation={setUserLocation}
+                    ignoreNextMapClick={ignoreNextMapClick}
+                />
 
                 {newPin && (
                     <Marker position={[newPin.lat, newPin.lng]} icon={markerIcon}>

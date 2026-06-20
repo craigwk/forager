@@ -35,6 +35,15 @@ export default function ObservationModal({
     const [photoPreview, setPhotoPreview] = useState("");
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [toastMessage, setToastMessage] = useState("");
+
+    function showToast(message: string) {
+        setToastMessage(message);
+
+        setTimeout(() => {
+            setToastMessage("");
+        }, 3000);
+    }
+
     const [currentLatitude, setCurrentLatitude] = useState(latitude);
     const [currentLongitude, setCurrentLongitude] = useState(longitude);
     const [locationSource, setLocationSource] = useState("Map pin");
@@ -66,7 +75,7 @@ export default function ObservationModal({
 
     function useCurrentLocation() {
         if (!navigator.geolocation) {
-            alert("Your browser does not support location.");
+            showToast("Your browser does not support location.");
             return;
         }
 
@@ -81,7 +90,7 @@ export default function ObservationModal({
             },
             (error) => {
                 console.error("Location error:", error);
-                alert("Could not get your current location. Check location permissions.");
+                showToast("Could not get your current location.");
                 setGettingLocation(false);
             },
             {
@@ -100,8 +109,7 @@ export default function ObservationModal({
         } = await supabase.auth.getUser();
 
         if (photoFile && !user) {
-            setToastMessage("📷 Sign in to upload photos.");
-            setTimeout(() => setToastMessage(""), 4000);
+            showToast("📷 Sign in to upload photos.");
             setSaving(false);
             return;
         }
@@ -118,7 +126,7 @@ export default function ObservationModal({
 
             if (uploadError) {
                 console.error("Upload error:", uploadError);
-                alert(`Could not upload photo: ${uploadError.message}`);
+                showToast(`Could not upload photo: ${uploadError.message}`);
                 setSaving(false);
                 return;
             }
@@ -148,12 +156,16 @@ export default function ObservationModal({
 
         if (error) {
             console.error("Supabase save error:", error);
-            alert("Could not save observation.");
+            showToast("Could not save observation.");
             return;
         }
 
-        onSaved();
-        onClose();
+        showToast("✓ Observation saved");
+
+        setTimeout(() => {
+            onSaved();
+            onClose();
+        }, 1000);
     }
 
     return (
