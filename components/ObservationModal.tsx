@@ -11,8 +11,8 @@ type Props = {
     species: string;
     onClose: () => void;
     onSaved: () => void;
+    onPhotoLocationFound?: (location: { lat: number; lng: number }) => void;
 };
-
 
 
 export default function ObservationModal({
@@ -21,7 +21,9 @@ export default function ObservationModal({
     species: initialSpecies,
     onClose,
     onSaved,
+    onPhotoLocationFound,
 }: Props) {
+
     const [species, setSpecies] = useState(initialSpecies);
     const [observedDate, setObservedDate] = useState(
         new Date().toISOString().split("T")[0]
@@ -67,9 +69,18 @@ export default function ObservationModal({
         }
 
         if (exif?.latitude && exif?.longitude) {
-            setCurrentLatitude(exif.latitude);
-            setCurrentLongitude(exif.longitude);
+            const photoLocation = {
+                lat: exif.latitude,
+                lng: exif.longitude,
+            };
+
+            setCurrentLatitude(photoLocation.lat);
+            setCurrentLongitude(photoLocation.lng);
             setLocationSource("Photo GPS");
+
+            onPhotoLocationFound?.(photoLocation);
+
+            showToast("Photo GPS found. Map moved to photo location.");
         }
     }
 

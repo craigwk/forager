@@ -1135,6 +1135,11 @@ export default function Map({ addRequest = 0 }: MapProps) {
                         setObservationTarget(null);
                         loadMapData();
                     }}
+                    onPhotoLocationFound={(location) => {
+                        setNewPin(location);
+                        setUserLocation(location);
+                        mapRef.current?.flyTo([location.lat, location.lng], 17);
+                    }}
                 />
             )}
 
