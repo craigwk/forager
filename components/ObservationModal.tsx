@@ -220,7 +220,7 @@ export default function ObservationModal({
                             <div className="text-3xl">📸</div>
 
                             <div className="mt-2 font-semibold text-[var(--forest)]">
-                                {photoName ? "Change photo" : "Add photo"}
+                                {photoName ? "Retake / Change photo" : "Take or add photo"}
                             </div>
 
                             <div className="mt-1 text-sm text-gray-600">
@@ -232,6 +232,7 @@ export default function ObservationModal({
                             id="photo-upload"
                             type="file"
                             accept="image/*"
+                            capture="environment"
                             onChange={handlePhotoChange}
                             className="hidden"
                         />

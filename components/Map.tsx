@@ -39,6 +39,7 @@ type CsvLocation = {
 type Observation = {
     source: "csv" | "user";
     savedLocationId?: string;
+    createdBy?: string;
     photoName: string;
     photoUrl?: string;
     observedDate: string;
@@ -76,6 +77,7 @@ type SupabaseObservation = {
     notes: string | null;
     photo_name: string | null;
     photo_url: string | null;
+    created_by: string | null;
 };
 
 function distanceInMetres(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -404,6 +406,7 @@ export default function Map({ addRequest = 0 }: MapProps) {
                             {
                                 source: "user",
                                 savedLocationId: location.id,
+                                createdBy: location.created_by ?? undefined,
                                 photoName: location.photo_name ?? "",
                                 photoUrl: location.photo_url ?? "",
                                 observedDate: location.observed_date ?? "",
@@ -543,7 +546,18 @@ export default function Map({ addRequest = 0 }: MapProps) {
 
                 <button
                     type="button"
-                    onClick={() => setViewMode(viewMode === "all" ? "mine" : "all")}
+                    onClick={async () => {
+                        const {
+                            data: { user },
+                        } = await supabase.auth.getUser();
+
+                        if (!user && viewMode === "all") {
+                            showToast("Sign in to view your observations.");
+                            return;
+                        }
+
+                        setViewMode(viewMode === "all" ? "mine" : "all");
+                    }}
                     style={{
                         borderRadius: "999px",
                         background: viewMode === "mine" ? "var(--forest)" : "var(--cream)",
