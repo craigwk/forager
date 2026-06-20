@@ -332,6 +332,8 @@ export default function Map({ addRequest = 0 }: MapProps) {
     const [previousSpot, setPreviousSpot] = useState<SpotGroup | null>(null);
     const lastHandledAddRequest = useRef(0);
     const ignoreNextMapClick = useRef(false);
+    const mapRef = useRef<L.Map | null>(null);
+
     const [observationTarget, setObservationTarget] = useState<{
         latitude: number;
         longitude: number;
@@ -562,6 +564,7 @@ export default function Map({ addRequest = 0 }: MapProps) {
                 center={[55.674, -4.067]}
                 zoom={14}
                 style={{ height: "100%", width: "100%" }}
+                ref={mapRef}
             >
                 <TileLayer attribution={attribution} url={tileUrl} />
 
@@ -726,17 +729,37 @@ export default function Map({ addRequest = 0 }: MapProps) {
                     <button
                         type="button"
                         onClick={() => {
-                            if (!userLocation) {
-                                showToast("📍 Use the location button first to get your GPS position.");
+                            if (!navigator.geolocation) {
+                                showToast("Your browser does not support location.");
                                 return;
                             }
 
-                            setShowAddChoice(false);
-                            setObservationTarget({
-                                latitude: userLocation.lat,
-                                longitude: userLocation.lng,
-                                species: "Elder",
-                            });
+                            navigator.geolocation.getCurrentPosition(
+                                (position) => {
+                                    const location = {
+                                        lat: position.coords.latitude,
+                                        lng: position.coords.longitude,
+                                    };
+
+                                    setUserLocation(location);
+                                    mapRef.current?.flyTo([location.lat, location.lng], 17);
+                                    setShowAddChoice(false);
+                                    setObservationTarget({
+                                        latitude: location.lat,
+                                        longitude: location.lng,
+                                        species: "Elder",
+                                    });
+                                },
+                                (error) => {
+                                    console.error("Location error:", error);
+                                    showToast("Could not get your current location.");
+                                },
+                                {
+                                    enableHighAccuracy: true,
+                                    timeout: 10000,
+                                    maximumAge: 0,
+                                }
+                            );
                         }}
                         style={{
                             width: "100%",

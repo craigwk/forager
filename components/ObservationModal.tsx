@@ -108,8 +108,8 @@ export default function ObservationModal({
             data: { user },
         } = await supabase.auth.getUser();
 
-        if (photoFile && !user) {
-            showToast("📷 Sign in to upload photos.");
+        if (!user) {
+            showToast("Sign in to save observations.");
             setSaving(false);
             return;
         }
@@ -149,7 +149,7 @@ export default function ObservationModal({
             notes,
             photo_name: photoName,
             photo_url: photoUrl,
-            created_by: user?.id ?? null,
+            created_by: user.id,
         });
 
         setSaving(false);
@@ -169,23 +169,32 @@ export default function ObservationModal({
     }
 
     return (
-        <div className="fixed inset-0 z-[2000] flex items-end bg-black/40">
-            <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-[var(--cream)] p-4 shadow-2xl">
-                <div className="mb-4 flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-bold text-[var(--forest)]">
-                            Add observation
-                        </h2>
-                        <p className="text-sm text-gray-600">
-                            {currentLatitude.toFixed(5)}, {currentLongitude.toFixed(5)}
-                            <br />
-                            <span className="text-xs">Source: {locationSource}</span>
-                        </p>
-                    </div>
+        <div className="fixed inset-0 z-[2000] flex items-end justify-center bg-black/30 p-3">
+            <div className="mb-2 max-h-[78vh] w-[min(560px,100%)] overflow-y-auto rounded-3xl bg-[rgba(247,244,237,0.72)] p-4 shadow-2xl backdrop-blur-md">
+                <div
+                    className="sticky top-[-16px] z-20 -mx-4 -mt-4 mb-4 rounded-t-3xl border-b border-black/10 bg-[rgba(247,244,237,0.88)] p-4 backdrop-blur-md"
+                >
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-xl font-bold text-[var(--forest)]">
+                                Add observation
+                            </h2>
 
-                    <button type="button" onClick={onClose} className="text-xl">
-                        ×
-                    </button>
+                            <p className="mt-1 text-xs text-gray-600">
+                                Source: {locationSource}
+                                <br />
+                                {currentLatitude.toFixed(5)}, {currentLongitude.toFixed(5)}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="grid h-9 w-9 place-items-center rounded-full bg-white/70 text-xl leading-none text-[var(--bark)] shadow-sm"
+                        >
+                            ×
+                        </button>
+                    </div>
                 </div>
 
                 <div className="space-y-4">
@@ -200,19 +209,39 @@ export default function ObservationModal({
                     </button>
 
                     <div>
-                        <label className="block mb-1 font-semibold">Photo optional</label>
-                        <input type="file" accept="image/*" onChange={handlePhotoChange} />
+                        <label className="mb-2 block font-semibold">
+                            Photo (optional)
+                        </label>
+
+                        <label
+                            htmlFor="photo-upload"
+                            className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--sage)] bg-white/40 p-6 text-center transition hover:bg-white/60"
+                        >
+                            <div className="text-3xl">📸</div>
+
+                            <div className="mt-2 font-semibold text-[var(--forest)]">
+                                {photoName ? "Change photo" : "Add photo"}
+                            </div>
+
+                            <div className="mt-1 text-sm text-gray-600">
+                                GPS and date will be read automatically if available
+                            </div>
+                        </label>
+
+                        <input
+                            id="photo-upload"
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePhotoChange}
+                            className="hidden"
+                        />
 
                         {photoPreview && (
                             <img
                                 src={photoPreview}
                                 alt={photoName}
-                                className="mt-2 w-full rounded-xl border object-cover"
+                                className="mt-3 w-full rounded-2xl border object-cover"
                             />
-                        )}
-
-                        {photoName && (
-                            <p className="mt-1 text-sm text-gray-600">Photo: {photoName}</p>
                         )}
                     </div>
 
