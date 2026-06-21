@@ -71,7 +71,7 @@ export default function ObservationModal({
     ) {
         const file = event.target.files?.[0];
         if (!file) return;
-        showToast(`Photo source: ${source}`);
+
         setPhotoFile(file);
         setPhotoName(file.name);
         setPhotoPreview(URL.createObjectURL(file));
@@ -221,7 +221,28 @@ export default function ObservationModal({
                                 Add observation
                             </h2>
 
-                            <p className="mt-1 text-xs text-gray-600">
+                            <div className="mt-1">
+                                <div
+                                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${locationSource === "Current GPS location" ||
+                                        locationSource === "Camera GPS"
+                                        ? "bg-green-100 text-green-800"
+                                        : locationSource === "Photo GPS"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-amber-100 text-amber-800"
+                                        }`}
+                                >
+                                    {locationSource === "Current GPS location" ||
+                                        locationSource === "Camera GPS"
+                                        ? "📍 Location confirmed"
+                                        : locationSource === "Photo GPS"
+                                            ? "📷 Photo GPS"
+                                            : "📌 Manual location"}
+                                </div>
+
+                                <p className="mt-1 text-xs text-gray-600">
+                                    {currentLatitude.toFixed(5)}, {currentLongitude.toFixed(5)}
+                                </p>
+                            </div>
                         </div>
 
                         <button
