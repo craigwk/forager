@@ -222,10 +222,6 @@ export default function ObservationModal({
                             </h2>
 
                             <p className="mt-1 text-xs text-gray-600">
-                                Source: {locationSource}
-                                <br />
-                                {currentLatitude.toFixed(5)}, {currentLongitude.toFixed(5)}
-                            </p>
                         </div>
 
                         <button
