@@ -50,8 +50,44 @@ export default function ObservationModal({
     const [currentLongitude, setCurrentLongitude] = useState(longitude);
     const [locationSource, setLocationSource] = useState("Map pin");
     const [gettingLocation, setGettingLocation] = useState(false);
+    const [cameraCaptureLocation, setCameraCaptureLocation] =
+        useState<{ lat: number; lng: number } | null>(null);
 
+    function openCameraWithCurrentLocation() {
+        if (!navigator.geolocation) {
+            showToast("Your browser does not support location.");
+            return;
+        }
 
+        showToast("Getting location before camera opens...");
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const location = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                };
+
+                setCameraCaptureLocation(location);
+                setCurrentLatitude(location.lat);
+                setCurrentLongitude(location.lng);
+                setLocationSource("Camera GPS");
+
+                onPhotoLocationFound?.(location);
+
+                document.getElementById("camera-upload")?.click();
+            },
+            (error) => {
+                console.error("Camera pre-GPS error:", error);
+                showToast("Could not get location before opening camera.");
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 20000,
+                maximumAge: 0,
+            }
+        );
+    }
 
     async function handlePhotoChange(
         event: React.ChangeEvent<HTMLInputElement>,
@@ -72,42 +108,20 @@ export default function ObservationModal({
         }
 
         if (source === "camera") {
-            if (!navigator.geolocation) {
-                showToast("Could not get live GPS for camera photo.");
-                return;
+            if (cameraCaptureLocation) {
+                setCurrentLatitude(cameraCaptureLocation.lat);
+                setCurrentLongitude(cameraCaptureLocation.lng);
+                setLocationSource("Camera GPS");
+
+                onPhotoLocationFound?.(cameraCaptureLocation);
+
+                showToast("Camera photo added at captured GPS location.");
+            } else {
+                showToast("Camera photo added. Location was not updated.");
             }
-
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const cameraLocation = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                    };
-
-                    setCurrentLatitude(cameraLocation.lat);
-                    setCurrentLongitude(cameraLocation.lng);
-                    setLocationSource("Camera GPS");
-
-                    onPhotoLocationFound?.(cameraLocation);
-
-                    showToast(
-                        `Camera GPS used: ${cameraLocation.lat.toFixed(5)}, ${cameraLocation.lng.toFixed(5)}`
-                    );
-                },
-                (error) => {
-                    console.error("Camera GPS error:", error);
-                    showToast(`Camera GPS failed: ${error.message}`);
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 20000,
-                    maximumAge: 0,
-                }
-            );
 
             return;
         }
-
         if (exif?.latitude && exif?.longitude) {
             const photoLocation = {
                 lat: exif.latitude,
@@ -266,7 +280,10 @@ export default function ObservationModal({
 
                         <div className="grid grid-cols-2 gap-3">
                             <label
-                                htmlFor="camera-upload"
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    openCameraWithCurrentLocation();
+                                }}
                                 className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--sage)] bg-white/40 p-4 text-center"
                             >
                                 <div className="text-3xl">📸</div>
@@ -295,15 +312,7 @@ export default function ObservationModal({
                                 </div>
                             </label>
                         </div>
-                        <div className="text-3xl">📸</div>
 
-                        <div className="mt-2 font-semibold text-[var(--forest)]">
-                            {photoName ? "Retake / Change photo" : "Take or add photo"}
-                        </div>
-
-                        <div className="mt-1 text-sm text-gray-600">
-                            GPS and date will be read automatically if available
-                        </div>
 
 
                         <input
