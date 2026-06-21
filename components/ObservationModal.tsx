@@ -54,39 +54,15 @@ export default function ObservationModal({
         useState<{ lat: number; lng: number } | null>(null);
 
     function openCameraWithCurrentLocation() {
-        if (!navigator.geolocation) {
-            showToast("Your browser does not support location.");
-            return;
-        }
+        const location = {
+            lat: currentLatitude,
+            lng: currentLongitude,
+        };
 
-        showToast("Getting location before camera opens...");
+        setCameraCaptureLocation(location);
+        setLocationSource("Camera GPS");
 
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const location = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                };
-
-                setCameraCaptureLocation(location);
-                setCurrentLatitude(location.lat);
-                setCurrentLongitude(location.lng);
-                setLocationSource("Camera GPS");
-
-                onPhotoLocationFound?.(location);
-
-                document.getElementById("camera-upload")?.click();
-            },
-            (error) => {
-                console.error("Camera pre-GPS error:", error);
-                showToast("Could not get location before opening camera.");
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 20000,
-                maximumAge: 0,
-            }
-        );
+        document.getElementById("camera-upload")?.click();
     }
 
     async function handlePhotoChange(
