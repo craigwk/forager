@@ -53,7 +53,10 @@ export default function ObservationModal({
 
 
 
-    async function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    async function handlePhotoChange(
+        event: React.ChangeEvent<HTMLInputElement>,
+        source: "camera" | "gallery"
+    ) {
         const file = event.target.files?.[0];
         if (!file) return;
 
@@ -68,6 +71,41 @@ export default function ObservationModal({
             setObservedDate(date.toISOString().split("T")[0]);
         }
 
+        if (source === "camera") {
+            if (!navigator.geolocation) {
+                showToast("Could not get live GPS for camera photo.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const cameraLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                    };
+
+                    setCurrentLatitude(cameraLocation.lat);
+                    setCurrentLongitude(cameraLocation.lng);
+                    setLocationSource("Camera GPS");
+
+                    onPhotoLocationFound?.(cameraLocation);
+
+                    showToast("Camera GPS used.");
+                },
+                (error) => {
+                    console.error("Camera GPS error:", error);
+                    showToast("Could not get live GPS for camera photo.");
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0,
+                }
+            );
+
+            return;
+        }
+
         if (exif?.latitude && exif?.longitude) {
             const photoLocation = {
                 lat: exif.latitude,
@@ -80,7 +118,7 @@ export default function ObservationModal({
 
             onPhotoLocationFound?.(photoLocation);
 
-            showToast("Photo GPS found. Map moved to photo location.");
+            showToast("Photo GPS used.");
         }
     }
 
@@ -271,7 +309,7 @@ export default function ObservationModal({
                             type="file"
                             accept="image/*"
                             capture="environment"
-                            onChange={handlePhotoChange}
+                            onChange={(event) => handlePhotoChange(event, "camera")}
                             className="hidden"
                         />
 
@@ -279,7 +317,7 @@ export default function ObservationModal({
                             id="gallery-upload"
                             type="file"
                             accept="image/*"
-                            onChange={handlePhotoChange}
+                            onChange={(event) => handlePhotoChange(event, "gallery")}
                             className="hidden"
                         />
 
