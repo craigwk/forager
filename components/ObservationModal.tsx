@@ -59,7 +59,7 @@ export default function ObservationModal({
     ) {
         const file = event.target.files?.[0];
         if (!file) return;
-
+        showToast(`Photo source: ${source}`);
         setPhotoFile(file);
         setPhotoName(file.name);
         setPhotoPreview(URL.createObjectURL(file));
@@ -94,7 +94,7 @@ export default function ObservationModal({
                 },
                 (error) => {
                     console.error("Camera GPS error:", error);
-                    showToast("Could not get live GPS for camera photo.");
+                    showToast(`Camera GPS failed: ${error.message}`);
                 },
                 {
                     enableHighAccuracy: true,
