@@ -90,7 +90,9 @@ export default function ObservationModal({
 
                     onPhotoLocationFound?.(cameraLocation);
 
-                    showToast("Camera GPS used.");
+                    showToast(
+                        `Camera GPS used: ${cameraLocation.lat.toFixed(5)}, ${cameraLocation.lng.toFixed(5)}`
+                    );
                 },
                 (error) => {
                     console.error("Camera GPS error:", error);
@@ -98,7 +100,7 @@ export default function ObservationModal({
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 10000,
+                    timeout: 20000,
                     maximumAge: 0,
                 }
             );
